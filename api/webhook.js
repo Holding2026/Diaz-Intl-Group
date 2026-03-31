@@ -261,13 +261,9 @@ export default async function handler(req, res) {
     if (body.data?.fromMe) return res.status(200).json({ status: 'own' });
     if (!text) return res.status(200).json({ status: 'empty' });
 
-    // Verificar autorización
-    const fromClean = from.replace(/[^0-9]/g, '');
-    const isAuthorized = AUTHORIZED.some(num => fromClean.endsWith(num.replace(/[^0-9]/g,'')) || num.replace(/[^0-9]/g,'').endsWith(fromClean));
-    if (!isAuthorized) {
-      console.log(`No autorizado: ${from}`);
-      return res.status(200).json({ status: 'unauthorized' });
-    }
+    // Log del número para diagnóstico
+    console.log(`Mensaje de: ${from} | Texto: ${text}`);
+    // Auth temporalmente desactivada para diagnóstico
 
     // Respuesta de ayuda
     if (/^(hola|ayuda|menu|menú|help|start|inicio)$/i.test(text.trim())) {
