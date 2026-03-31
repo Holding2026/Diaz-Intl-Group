@@ -27,9 +27,12 @@ async function sendMsg(to, body) {
 
 // Extraer nombre: quitar palabras comunes y quedarse con lo que parece nombre
 function extraerNombre(texto) {
-  const QUITAR = /\b(necesito|saber|quiero|ver|dame|dime|muestra|muestrame|cual|cuanto|cuantos|como|que|del|los|las|una|uno|con|por|para|hay|esta|este|pero|mas|sin|muy|saldo|resumen|historial|informacion|información|completo|inversionista|contrato|tycoon|kii|diaz|de|el|la|en|al|su|sus|tiene|queda|devolverle|pendiente|pronto|vence|vencen|cobrar|el|la|me|le)\b/gi;
+  const QUITAR = /\b(necesito|saber|quiero|ver|dame|dime|muestra|muestrame|cual|cuanto|cuantos|como|que|del|los|las|una|uno|con|por|para|hay|esta|este|pero|mas|sin|muy|saldo|resumen|historial|informacion|información|completo|inversionista|contrato|tycoon|kii|diaz|de|el|la|en|al|su|sus|tiene|queda|devolverle|pendiente|pronto|vence|vencen|cobrar|me|le|fue|fue|ultimo|último|reporte|informe|datos|estado|situacion|situación|portafolio|inversión|inversion|dinero|plata|capital|cuenta|balance|fue|cuál|cuál|dónde|donde|cuando|cómo|porqué|porque|decirme|contarme|mostrarme|darme|explicarme|actualización|actualizacion|novedad|novedades|noticias|ultimo|última|reciente|recientes|nuevo|nueva)\b/gi;
   const limpio = texto.replace(QUITAR, ' ').replace(/\s+/g, ' ').trim();
-  return limpio || null;
+  // Si quedan varias palabras, tomar las últimas 3 (más probables de ser el nombre)
+  const palabras = limpio.split(' ').filter(p => p.length > 1);
+  if (!palabras.length) return null;
+  return palabras.slice(-3).join(' ').trim();
 }
 
 async function buscarInversionista(nombre) {
@@ -168,13 +171,177 @@ export default async function handler(req, res) {
       return res.status(200).json({status:'ok'});
     }
 
-    // BUSQUEDA POR NOMBRE — cualquier otro mensaje
-    // Extraer nombre quitando palabras comunes
+    // ÚLTIMO REPORTE / ÚLTIMO MEMO
+    const esUltimoReporte = m.includes('ultimo') || m.includes('último') || 
+      m.includes('reporte') || m.includes('memo') || m.includes('liquidacion') ||
+      m.includes('liquidación') || m.includes('ultimo corte') || m.includes('último corte');
+
+    if (esUltimoReporte) {
+      const nombreRep = extraerNombre(text);
+      if (nombreRep && nombreRep.length >= 3) {
+        const t = encodeURIComponent(nombreRep);
+        // Buscar contrato
+        const contratos = await supabase('contratos_tycoon', 
+          `?nombre_inversionista=ilike.*${t}*&select=id,numero,nombre_inversionista,saldo_actual`);
+        
+        if (Array.isArray(contratos) && contratos.length) {
+          let resp = `📋 *Último corte — ${contratos[0].nombre_inversionista}*
+
+`;
+          
+          for (const c of contratos.slice(0,3)) {
+            // Obtener último movimiento
+            const movs = await supabase('movimientos',
+              `?contrato_id=eq.${c.id}&tipo=eq.corte_rendimiento&order=fecha.desc&limit=1`);
+            
+            if (Array.isArray(movs) && movs.length) {
+              const m = movs[0];
+              const pct = m.porcentaje ? (m.porcentaje*100).toFixed(2)+'%' : '—';
+              resp += `📊 *${c.numero}*
+`;
+              resp += `━━━━━━━━━━━━━━
+`;
+              resp += `📅 Fecha: ${fd(m.fecha)}
+`;
+              resp += `🔢 Memo: ${m.numero_memo||'—'}
+`;
+              resp += `💰 Capital base: ${fm(m.capital_base)}
+`;
+              resp += `📈 % Período: *${pct}*
+`;
+              resp += `💵 Rendimiento: *${fm(m.valor_rendimiento)}*
+`;
+              resp += `🔄 Reinversión: ${fm(m.valor_reinversion)}
+`;
+              resp += `🏦 Saldo resultado: *${fm(m.saldo_resultado)}*
+`;
+              if (m.anotaciones) resp += `📝 Nota: ${m.anotaciones}
+`;
+              resp += `
+💼 Saldo actual contrato: *${fm(c.saldo_actual)}*
+
+`;
+            } else {
+              resp += `📊 *${c.numero}* — Sin cortes registrados
+
+`;
+            }
+          }
+          await sendMsg(from, resp.trim());
+          return res.status(200).json({status:'ok'});
+        } else {
+          await sendMsg(from, `❌ No encontré contratos para "${nombreRep}".`);
+          return res.status(200).json({status:'ok'});
+        }
+      }
+    }
+
+    // KII por nombre
+    if (m.startsWith('kii ')) {
+      const nombreKii = extraerNombre(text.replace(/^kii\s+/i,''));
+      const kiiData = await supabase('posiciones_kii', `?inversionista_nombre=ilike.*${encodeURIComponent(nombreKii||'')}*`);
+      if (Array.isArray(kiiData) && kiiData.length) {
+        let resp = '⬡ *KII EXCHANGE*
+━━━━━━━━━━━━━━
+';
+        kiiData.forEach(i => {
+          resp += `👤 *${i.inversionista_nombre}* · ${i.contrato}
+`;
+          resp += `📅 Desde: ${fd(i.fecha_inversion)}
+`;
+          resp += `💰 Invertido: ${fm(i.valor_inversion)}
+`;
+          resp += `🪙 KII Coins: ${Number(i.kii_coins||0).toLocaleString()}
+`;
+          resp += `📈 Staking: ${Number(i.staking_acumulado||0).toLocaleString()}
+`;
+          resp += `🏦 Total tokens: *${Number(i.total_tokens||0).toLocaleString()}*
+`;
+          resp += `💵 Valor @$0.02: *${fm((i.total_tokens||0)*0.02)}*
+
+`;
+        });
+        await sendMsg(from, resp.trim());
+      } else {
+        await sendMsg(from, `❌ No encontré posición KII para "${nombreKii}".`);
+      }
+      return res.status(200).json({status:'ok'});
+    }
+
+    // BUSQUEDA POR NOMBRE — busca en Tycoon Y KII simultáneamente
     const nombre = extraerNombre(text);
     if (nombre && nombre.length >= 3) {
-      const data = await buscarInversionista(nombre);
-      const resp = respuestaInversionista(data, nombre);
-      await sendMsg(from, resp);
+      const t = encodeURIComponent(nombre);
+      const [tycoon, kii] = await Promise.all([
+        supabase('vista_perfil_contrato', `?or=(inversionista.ilike.*${t}*,numero.ilike.*${t}*)`),
+        supabase('posiciones_kii', `?inversionista_nombre=ilike.*${t}*`)
+      ]);
+      const ty = Array.isArray(tycoon) ? tycoon : [];
+      const ki = Array.isArray(kii) ? kii : [];
+      
+      if (!ty.length && !ki.length) {
+        await sendMsg(from, `❌ No encontré a *${nombre}*.
+Intente con nombre exacto o contrato (T8, T17, TK7...)`);
+        return res.status(200).json({status:'ok'});
+      }
+
+      let resp = '';
+      
+      // Tycoon
+      if (ty.length) {
+        ty.slice(0,3).forEach(c => {
+          const dias = c.dias_al_vencimiento;
+          const alerta = dias<30?'🔴 VENCE PRONTO':dias<60?'🟡 Próximo':'🟢 Al día';
+          resp += '📊 *TYCOON*
+━━━━━━━━━━━━━━
+';
+          resp += `👤 *${c.inversionista}*
+📋 ${c.numero} · ${c.tipo_liquidacion}
+
+`;
+          resp += `💰 *Financiero:*
+`;
+          resp += `• Capital inicial: ${fm(c.valor_inicial)}
+`;
+          resp += `• Saldo actual: *${fm(c.saldo_actual)}*
+`;
+          resp += `• Crecimiento: ${(c.crecimiento_pct||0)>=0?'📈':'📉'} *${c.crecimiento_pct||0}%*
+`;
+          resp += `• Rendimientos: ${fm(c.total_rendimientos)} (${c.rendimiento_total_pct||0}%)
+`;
+          resp += `• Retiros: ${fm(c.total_retiros)}
+
+`;
+          resp += `📅 *Vencimiento:*
+• ${fd(c.fecha_vencimiento)} · ${dias}d · ${alerta}
+
+`;
+        });
+      }
+      
+      // KII
+      if (ki.length) {
+        resp += '⬡ *KII EXCHANGE*
+━━━━━━━━━━━━━━
+';
+        ki.forEach(i => {
+          resp += `📋 ${i.contrato} · Desde: ${fd(i.fecha_inversion)}
+`;
+          resp += `💰 Invertido: ${fm(i.valor_inversion)}
+`;
+          resp += `🪙 KII Coins: ${Number(i.kii_coins||0).toLocaleString()}
+`;
+          resp += `📈 Staking: ${Number(i.staking_acumulado||0).toLocaleString()}
+`;
+          resp += `🏦 Total tokens: *${Number(i.total_tokens||0).toLocaleString()}*
+`;
+          resp += `💵 Valor @$0.02: *${fm((i.total_tokens||0)*0.02)}*
+
+`;
+        });
+      }
+
+      await sendMsg(from, resp.trim());
       return res.status(200).json({status:'ok'});
     }
 
