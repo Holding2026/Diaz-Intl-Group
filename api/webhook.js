@@ -43,8 +43,10 @@ async function sendMsg(to, body) {
 async function obtenerDatos(intencion, termino) {
   try {
     if (intencion === 'saldo' || intencion === 'resumen') {
+      if (!termino) return null;
+      const t = encodeURIComponent(termino.trim());
       const data = await query('vista_perfil_contrato',
-        `?or=(inversionista.ilike.*${encodeURIComponent(termino)}*,numero.ilike.*${encodeURIComponent(termino)}*)`);
+        `?or=(inversionista.ilike.*${t}*,numero.ilike.*${t}*)`);
       return data && data.length ? data : null;
     }
     if (intencion === 'vencimientos') {
@@ -73,7 +75,12 @@ async function obtenerDatos(intencion, termino) {
 // ── FORMATEAR RESPUESTA ───────────────────────────────────────
 function formatearRespuesta(intencion, termino, datos) {
   if (!datos || !datos.length) {
-    return `❌ No encontré información para "${termino}". Verifique el nombre o intente con el número de contrato (ej: T8, T17).`;
+    const busqueda = termino || 'el nombre indicado';
+    return `❌ No encontré información para "*${busqueda}*".
+
+Intente con el nombre exacto o número de contrato:
+• T3, T8, T17...
+• Caterine, Alejandro, Gisselle...`;
   }
 
   if (intencion === 'saldo' || intencion === 'resumen') {
@@ -319,8 +326,14 @@ export default async function handler(req, res) {
     }
 
     // Interpretar con IA
-    const { intencion, termino } = await interpretarConIA(text);
-    console.log(`Intención: ${intencion}, Término: ${termino}`);
+    let { intencion, termino } = await interpretarConIA(text);
+    
+    // Si termino es undefined/null y hay intencion de resumen, intentar extraer nombre directamente
+    if ((intencion === 'resumen' || intencion === 'saldo') && !termino) {
+      termino = extraerNombre(text);
+    }
+    
+    console.log(`From: ${from} | Intención: ${intencion} | Término: ${termino} | Texto: ${text}`);
 
     if (intencion === 'desconocido') {
       await sendMsg(from, `🤖 No entendí bien la consulta. Puedes preguntarme por:\n• Saldo de un inversionista\n• Vencimientos próximos\n• Posiciones KII\n• Cartera Díaz Intl\n\nEscribe *ayuda* para ver ejemplos.`);
