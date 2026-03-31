@@ -214,7 +214,13 @@ Mensaje: "${mensaje}"`;
     const data = await res.json();
     const text = data.content?.[0]?.text || '{}';
     const clean = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(clean);
+    const result = JSON.parse(clean);
+    // Si la IA no extrajo el término, usar fallback
+    if (!result.termino && result.intencion === 'resumen') {
+      const fallback = detectarPorKeywords(mensaje);
+      result.termino = fallback.termino;
+    }
+    return result;
   } catch(e) {
     // Fallback: detección por palabras clave
     return detectarPorKeywords(mensaje);
@@ -222,27 +228,68 @@ Mensaje: "${mensaje}"`;
 }
 
 // ── FALLBACK SIN IA ───────────────────────────────────────────
-function detectarPorKeywords(msg) {
-  const m = msg.toLowerCase();
-  if (m.includes('vencimiento') || m.includes('vence') || m.includes('próximo')) return { intencion: 'vencimientos', termino: null };
-  if (m.includes('kii') || m.includes('token')) return { intencion: 'kii', termino: extraerNombre(m, ['kii','token']) };
-  if (m.includes('factura') || m.includes('cartera') || m.includes('cobrar') || m.includes('pendiente')) return { intencion: 'facturas', termino: null };
-  if (m.includes('contrato') && !m.includes('de ')) return { intencion: 'contratos', termino: null };
-  if (m.match(/t\d+/i)) return { intencion: 'resumen', termino: m.match(/t\d+/i)[0].toUpperCase() };
-  if (m.includes('hola') || m.includes('ayuda') || m.includes('menu')) return { intencion: 'ayuda', termino: null };
+const STOP_WORDS = new Set([
+  'necesito','saber','quiero','ver','dame','dime','muestra','muestrame',
+  'cual','cuanto','cuantos','como','que','del','los','las','una','uno',
+  'con','por','para','hay','esta','este','pero','mas','sin','muy',
+  'saldo','resumen','historial','informacion','información','completo',
+  'inversionista','contrato','contratos','tycoon','kii','diaz',
+  'de','el','la','en','al','su','sus','tiene','tiene','queda',
+  'devolverle','pendiente','pronto','vence','vencen','cobrar'
+]);
 
-  // Si menciona saldo, info, resumen, cuanto, inversionista — es consulta de inversionista
-  if (m.includes('saldo') || m.includes('cuanto') || m.includes('información') ||
-      m.includes('resumen') || m.includes('inversionista') || m.includes('devolverle') ||
-      m.includes('queda') || m.includes('tiene')) {
-    return { intencion: 'resumen', termino: extraerNombre(m, ['saldo','cuanto','información','resumen','inversionista','devolverle','queda','tiene','de','del','al','la','el','en','tycoon','kii']) };
+function extraerNombre(texto) {
+  // Buscar patrones de nombre después de palabras clave
+  const patrones = [
+    /(?:de|del|al|inversionista|saldo|resumen|historial)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,3})/i,
+    /([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})/,
+  ];
+  for (const patron of patrones) {
+    const match = texto.match(patron);
+    if (match && match[1]) {
+      const nombre = match[1].trim();
+      // Verificar que no sea una stop word
+      if (!STOP_WORDS.has(nombre.toLowerCase()) && nombre.length > 3) {
+        return nombre;
+      }
+    }
   }
-  return { intencion: 'desconocido', termino: null };
+  // Último recurso: palabras que parecen nombres propios
+  const palabras = texto.split(/\s+/).filter(w => 
+    w.length > 3 && 
+    /^[A-ZÁÉÍÓÚÑ]/.test(w) && 
+    !STOP_WORDS.has(w.toLowerCase())
+  );
+  return palabras.slice(0, 3).join(' ') || null;
 }
 
-function extraerNombre(msg, stopWords) {
-  const words = msg.split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w) && !/^(que|por|para|con|una|uno|los|las|hay|esta|este|como|pero|mas|sin)$/.test(w));
-  return words.slice(0, 4).join(' ').trim() || null;
+function detectarPorKeywords(msg) {
+  const m = msg.toLowerCase();
+  
+  if (m.includes('vencimiento') || m.includes('vence') || m.includes('próximo') || m.includes('proximo')) 
+    return { intencion: 'vencimientos', termino: null };
+  
+  if (m.includes('factura') || m.includes('cartera') || m.includes('cobrar')) 
+    return { intencion: 'facturas', termino: null };
+  
+  if (m.includes('kii') || m.includes('token')) 
+    return { intencion: 'kii', termino: extraerNombre(msg) };
+  
+  if ((m.includes('todos') || m.includes('lista')) && m.includes('contrato')) 
+    return { intencion: 'contratos', termino: null };
+  
+  const contractMatch = msg.match(/T\d+/i);
+  if (contractMatch) 
+    return { intencion: 'resumen', termino: contractMatch[0].toUpperCase() };
+  
+  if (m.includes('hola') || m.includes('ayuda') || m.includes('menu') || m === 'hola') 
+    return { intencion: 'ayuda', termino: null };
+
+  // Cualquier mensaje con nombre propio = consulta de inversionista
+  const nombre = extraerNombre(msg);
+  if (nombre) return { intencion: 'resumen', termino: nombre };
+  
+  return { intencion: 'desconocido', termino: null };
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────
