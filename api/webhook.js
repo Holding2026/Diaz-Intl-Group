@@ -45,9 +45,12 @@ async function obtenerDatos(intencion, termino) {
     if (intencion === 'saldo' || intencion === 'resumen') {
       if (!termino) return null;
       const t = encodeURIComponent(termino.trim());
-      const data = await query('vista_perfil_contrato',
-        `?or=(inversionista.ilike.*${t}*,numero.ilike.*${t}*)`);
-      return data && data.length ? data : null;
+      const [tycoon, kii] = await Promise.all([
+        query('vista_perfil_contrato', `?or=(inversionista.ilike.*${t}*,numero.ilike.*${t}*)`),
+        query('posiciones_kii', `?inversionista_nombre=ilike.*${t}*`)
+      ]);
+      if ((!tycoon || !tycoon.length) && (!kii || !kii.length)) return null;
+      return { tycoon: tycoon || [], kii: kii || [] };
     }
     if (intencion === 'vencimientos') {
       const data = await query('vista_contratos_vencimiento', '?order=dias_al_vencimiento.asc&limit=10');
@@ -74,7 +77,8 @@ async function obtenerDatos(intencion, termino) {
 
 // ── FORMATEAR RESPUESTA ───────────────────────────────────────
 function formatearRespuesta(intencion, termino, datos) {
-  if (!datos || !datos.length) {
+  const tieneInfo = datos && (datos.tycoon?.length || datos.kii?.length || (Array.isArray(datos) && datos.length));
+  if (!tieneInfo) {
     const busqueda = termino || 'el nombre indicado';
     return `❌ No encontré información para "*${busqueda}*".
 
@@ -330,7 +334,8 @@ export default async function handler(req, res) {
     if (palabras.length <= 3 && !/^(hola|ayuda|menu|help|start)$/i.test(text.trim())) {
       // Buscar directo en la base de datos
       const datosDirect = await obtenerDatos('resumen', text.trim());
-      if (datosDirect && datosDirect.length) {
+      const tieneData = datosDirect && (datosDirect.tycoon?.length || datosDirect.kii?.length || datosDirect.length);
+      if (tieneData) {
         const respDirecta = formatearRespuesta('resumen', text.trim(), datosDirect);
         await sendMsg(from, respDirecta);
         return res.status(200).json({ status: 'ok' });
