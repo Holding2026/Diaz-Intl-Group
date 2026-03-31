@@ -325,15 +325,27 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'ok' });
     }
 
-    // Interpretar con IA
+    // Si el mensaje es corto (1-3 palabras), buscar directamente como nombre o contrato
+    const palabras = text.trim().split(/\s+/);
+    if (palabras.length <= 3 && !/^(hola|ayuda|menu|help|start)$/i.test(text.trim())) {
+      // Buscar directo en la base de datos
+      const datosDirect = await obtenerDatos('resumen', text.trim());
+      if (datosDirect && datosDirect.length) {
+        const respDirecta = formatearRespuesta('resumen', text.trim(), datosDirect);
+        await sendMsg(from, respDirecta);
+        return res.status(200).json({ status: 'ok' });
+      }
+    }
+
+    // Interpretar con IA o fallback
     let { intencion, termino } = await interpretarConIA(text);
     
-    // Si termino es undefined/null y hay intencion de resumen, intentar extraer nombre directamente
+    // Si termino sigue siendo null, extraer del texto
     if ((intencion === 'resumen' || intencion === 'saldo') && !termino) {
-      termino = extraerNombre(text);
+      termino = extraerNombre(text) || text.trim();
     }
     
-    console.log(`From: ${from} | Intención: ${intencion} | Término: ${termino} | Texto: ${text}`);
+    console.log(`From: ${from} | Intención: ${intencion} | Término: ${termino}`);
 
     if (intencion === 'desconocido') {
       await sendMsg(from, `🤖 No entendí bien la consulta. Puedes preguntarme por:\n• Saldo de un inversionista\n• Vencimientos próximos\n• Posiciones KII\n• Cartera Díaz Intl\n\nEscribe *ayuda* para ver ejemplos.`);
