@@ -2,8 +2,8 @@
 // DÍAZ INTL GROUP — WhatsApp Bot
 // ============================================================
 
-const SUPABASE_URL = 'https://wxxkqrapzyckcmssgdyp.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4eGtxcmFwenlja2Ntc3NnZHlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NDE4MjQsImV4cCI6MjA5MDIxNzgyNH0.UoHdwn-kBUuS8Jkv5IYp5LCAaUH5tyzo7Gq3eIdeAmo';
+const SUPABASE_URL = 'https://flmfgrgnmigdwdnrzgkw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsbWZncmdubWlnZHdkbnJ6Z2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5ODU3MzUsImV4cCI6MjA5MDU2MTczNX0.xCXujNCVTc7D7S6J8qK3qM-2ROv0n6JADT9qTN9PBlI';
 const ULTRAMSG_INSTANCE = 'instance168037';
 const ULTRAMSG_TOKEN = '7b6klistnx4jz7gu';
 
