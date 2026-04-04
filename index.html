@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0f0d">
+<title>Díaz Intl Group</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  /* Tycoon brand */
+  --ty-navy:#012459;--ty-red:#D22630;--ty-gray:#5B6770;--ty-light:#DBE2E9;
+  /* Díaz brand */
+  --dz-teal:#00D5B0;--dz-teal2:#00A98D;--dz-dark:#00554B;
+  /* KII brand */
+  --kii-bg:#0C0316;--kii-mid:#2A1D3C;--kii-purple:#5B3D7D;--kii-lavender:#C7A9F8;--kii-sky:#9AD1F7;--kii-deep:#312C7F;
+  /* Base globals */
+  --w:#f0a500;--wd:rgba(240,165,0,0.1);
+  --or:#FF7A00;--ord:rgba(255,122,0,0.12);
+  --d:#D22630;--dd:rgba(210,38,48,0.1);
+  --h:#5B6770;--hd:rgba(91,103,112,0.1);
+  --bl:#00D5B0;--bld:rgba(0,213,176,0.1);
+  /* Default = Tycoon theme */
+  --bg:#010f1e;--sf:#011830;--sf2:#012050;--br:#0a2d4a;
+  --ac:#D22630;--ad:rgba(210,38,48,0.08);--am:rgba(210,38,48,0.18);
+  --t:#DBE2E9;--t2:#5B6770;--t3:#4a6a8a;
+  --sb-bg:#011830;--sb-border:#0a2d4a;--sb-top:#D22630;
+}
+/* ── TYCOON THEME (default) ── */
+body.theme-ty {
+  --bg:#010f1e;--sf:#011830;--sf2:#012050;--br:#0a2d4a;
+  --ac:#D22630;--ad:rgba(210,38,48,0.08);
+  --t:#DBE2E9;--t2:#5B6770;--t3:#4a6a8a;
+  --sb-bg:#011830;--sb-border:#0a2d4a;--sb-top:#D22630;
+}
+/* ── DÍAZ THEME ── */
+body.theme-dz {
+  --bg:#001a14;--sf:#002b1e;--sf2:#003826;--br:#005240;
+  --ac:#00D5B0;--ad:rgba(0,213,176,0.08);
+  --t:#e0fdf6;--t2:#4a9e8a;--t3:#2d7060;
+  --sb-bg:#002b1e;--sb-border:#005240;--sb-top:#00D5B0;
+}
+/* ── KII THEME ── */
+body.theme-kii {
+  --bg:#07020f;--sf:#0C0316;--sf2:#150825;--br:#2A1D3C;
+  --ac:#C7A9F8;--ad:rgba(199,169,248,0.08);
+  --t:#f0eaff;--t2:#8a6aaa;--t3:#5B3D7D;
+  --sb-bg:#0C0316;--sb-border:#2A1D3C;--sb-top:#C7A9F8;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--t);font-family:"DM Sans",sans-serif;min-height:100vh;overflow-x:hidden;transition:background 0.4s,color 0.3s}
+/* LOADING */
+.loading-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity 0.4s}
+.loading-screen.hide{opacity:0;pointer-events:none}
+.loading-logo{font-family:"Syne",sans-serif;font-weight:800;font-size:32px;color:#00D5B0;letter-spacing:-1px}
+.loading-bar-wrap{width:200px;height:3px;background:var(--br);border-radius:2px}
+.loading-bar{height:3px;border-radius:2px;background:#00D5B0;width:0%;animation:loadbar 1.5s ease forwards}
+@keyframes loadbar{to{width:100%}}
+.loading-text{font-size:11px;color:var(--t3);font-family:"DM Mono",monospace;letter-spacing:1px}
+/* LOGIN */
+.login-screen{position:fixed;inset:0;background:var(--bg);z-index:400;display:flex;align-items:center;justify-content:center}
+.login-box{background:#010f1e;border:1px solid #00554B;border-radius:14px;padding:32px 28px;width:min(340px,90vw);text-align:center;box-shadow:0 20px 60px rgba(0,213,176,0.1)}
+.login-logo-svg{margin-bottom:16px}
+.login-title{font-family:"Syne",sans-serif;font-weight:700;font-size:18px;margin-bottom:4px}
+.login-sub{font-size:11px;color:var(--t2);margin-bottom:22px}
+.login-field{margin-bottom:12px;text-align:left}
+.login-label{font-size:10px;color:var(--t3);font-family:"DM Mono",monospace;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;display:block}
+.login-input{width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:8px;padding:10px 14px;color:var(--t);font-size:14px;outline:none;font-family:"DM Sans",sans-serif}
+.login-input:focus{border-color:#00D5B0}
+.login-btn{width:100%;background:#00A98D;color:#ffffff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:"DM Sans",sans-serif;margin-top:4px}
+.login-btn:hover{filter:brightness(1.1)}
+.login-err{font-size:11px;color:var(--d);margin-top:8px;min-height:16px;text-align:center}
+/* SIDEBAR */
+.sb{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--sb-bg);border-right:1px solid var(--sb-border);z-index:10;display:flex;flex-direction:column;transition:background 0.4s,border-color 0.4s}
+.sb-logo{padding:16px 16px 14px;border-bottom:1px solid var(--sb-border);border-top:3px solid var(--sb-top);transition:border-color 0.4s}
+.sb-logo svg{width:110px;height:auto}
+.sb-sub{font-family:"DM Mono",monospace;font-size:8px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+.sb-nav{padding:10px 7px 0;flex:1;overflow-y:auto}
+.nlbl{font-family:"DM Mono",monospace;font-size:8px;color:#D22630;letter-spacing:2px;text-transform:uppercase;padding:0 9px;margin:10px 0 3px;opacity:0.7}
+.nlbl.dz{color:#00A98D}.nlbl.kii{color:#C7A9F8}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--t2);transition:all .12s;margin-bottom:1px}
+.ni:hover{background:var(--ad);color:var(--t)}.ni.on{background:rgba(210,38,48,0.15);color:#D22630}
+.ni.on.ni-diaz{background:rgba(0,213,176,0.12);color:#00D5B0}
+.ni.on.ni-kii{background:rgba(199,169,248,0.12);color:#C7A9F8}
+.nic{font-size:12px;width:14px;text-align:center;opacity:.7}.ni.on .nic{opacity:1}
+.sb-bot{padding:11px 14px;border-top:1px solid var(--br)}
+.user-info{display:flex;align-items:center;gap:9px}
+.user-av{width:27px;height:27px;border-radius:7px;background:var(--ad);border:1px solid var(--ac);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--ac)}
+.logout-btn{font-size:9px;color:var(--t3);cursor:pointer;font-family:"DM Mono",monospace;margin-top:2px;letter-spacing:1px}
+.logout-btn:hover{color:var(--d)}
+/* MOBILE NAV */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--sb-bg);border-top:1px solid var(--sb-border);z-index:50;padding:6px 0 max(6px,env(safe-area-inset-bottom));transition:background 0.4s}
+.mob-tabs{display:flex;justify-content:space-around}
+.mob-tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 14px;cursor:pointer;border-radius:8px;transition:all .15s}
+.mob-tab.on{background:var(--ad)}
+.mob-tab-icon{font-size:19px;opacity:.6}.mob-tab.on .mob-tab-icon{opacity:1}
+.mob-tab-label{font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;letter-spacing:1px;text-transform:uppercase}
+.mob-tab.on .mob-tab-label{color:var(--ac)}
+/* MAIN */
+.main{margin-left:220px;padding:22px 26px;min-height:100vh}
+/* Subtle theme glow in background */
+body.theme-ty::before{content:'';position:fixed;top:-200px;right:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(210,38,48,0.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+body.theme-dz::before{content:'';position:fixed;top:-200px;right:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(0,213,176,0.08) 0%,transparent 70%);pointer-events:none;z-index:0}
+body.theme-kii::before{content:'';position:fixed;top:-200px;right:-200px;width:700px;height:700px;background:radial-gradient(circle,rgba(91,61,125,0.18) 0%,transparent 70%);pointer-events:none;z-index:0}
+body.theme-kii::after{content:'';position:fixed;bottom:-200px;left:100px;width:500px;height:500px;background:radial-gradient(circle,rgba(154,209,247,0.06) 0%,transparent 70%);pointer-events:none;z-index:0}
+.main > *{position:relative;z-index:1}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:10px;flex-wrap:wrap}
+.ptitle{font-family:"Syne",sans-serif;font-weight:800;font-size:19px;line-height:1.2}
+.psub{font-size:10px;color:var(--t2);margin-top:2px;font-family:"DM Mono",monospace}
+.btns{display:flex;gap:6px;flex-shrink:0}
+.btn{padding:6px 12px;border-radius:7px;font-size:11px;font-family:"DM Sans",sans-serif;cursor:pointer;border:none;font-weight:500;transition:all .12s;white-space:nowrap}
+.btn-g{background:var(--sf2);color:var(--t2);border:1px solid var(--br)}.btn-g:hover{color:var(--t)}
+.btn-p{background:#D22630;color:#ffffff;font-weight:700}.btn-p:hover{filter:brightness(1.1)}
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:15px}
+.stat{background:var(--sf);border:1px solid var(--br);border-radius:9px;padding:14px;position:relative;overflow:hidden;animation:fu .3s ease both;transition:background 0.4s,border-color 0.4s}
+.stat:nth-child(1){animation-delay:.05s}.stat:nth-child(2){animation-delay:.1s}.stat:nth-child(3){animation-delay:.15s}.stat:nth-child(4){animation-delay:.2s}
+.sl{font-family:"DM Mono",monospace;font-size:8px;color:var(--t);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;opacity:0.65}
+.sv{font-family:"Syne",sans-serif;font-size:19px;font-weight:700}
+.sv.g{color:#00D5B0}.sv.w{color:var(--w)}.sv.d{color:var(--d)}.sv.b{color:var(--bl)}
+.sd{font-size:9.5px;color:var(--t3);margin-top:2px}.si{position:absolute;right:10px;top:10px;font-size:16px;opacity:.1}
+/* ALERTS */
+.alerts{margin-bottom:14px}
+.alert{border-radius:8px;padding:10px 13px;display:flex;align-items:center;gap:10px;margin-bottom:6px;cursor:pointer}
+.alert.red{background:var(--ord);border:1px solid rgba(255,122,0,.35);border-left:3px solid var(--or)}.alert.yel{background:var(--wd);border:1px solid rgba(240,165,0,.22)}
+.adot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.adot.r{background:var(--or);animation:pr 1.4s infinite}.adot.y{background:var(--w)}
+@keyframes pr{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,122,0,.4)}50%{opacity:.6;box-shadow:0 0 0 5px rgba(255,122,0,0)}}
+.atext{flex:1;min-width:0}
+.atitle{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atitle.r{color:var(--or)}.atitle.y{color:var(--w)}
+.asub{font-size:9.5px;color:var(--t2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ameta{font-family:"DM Mono",monospace;font-size:15px;font-weight:700;flex-shrink:0}
+.ameta.r{color:var(--or)}.ameta.y{color:var(--w)}
+/* CONTROLS */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.stitle{font-family:"Syne",sans-serif;font-weight:700;font-size:13px}
+.badge{padding:2px 8px;border-radius:20px;font-size:9px;font-family:"DM Mono",monospace}
+.bdg{background:var(--ad);color:var(--ac);border:1px solid var(--ac)}
+.bdb{background:var(--bld);color:var(--bl);border:1px solid rgba(0,213,176,0.3)}
+.bdw{background:var(--wd);color:var(--w);border:1px solid rgba(240,165,0,0.2)}
+.ctls{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.srch{flex:1;min-width:130px;background:var(--sf);border:1px solid var(--br);border-radius:7px;padding:6px 10px;color:var(--t);font-size:11.5px;outline:none;font-family:"DM Sans",sans-serif}
+.srch:focus{border-color:var(--t3)}.srch::placeholder{color:var(--t3)}
+.chip{padding:5px 10px;border-radius:7px;background:var(--sf);border:1px solid var(--br);color:var(--t2);font-size:10.5px;cursor:pointer;white-space:nowrap;transition:all .12s}
+.chip:hover,.chip.on{background:var(--ad);color:var(--ac);border-color:var(--ac)}
+/* TABLE */
+.tw{background:var(--sf);border:1px solid var(--br);border-radius:9px;overflow:hidden;margin-bottom:14px;transition:background 0.4s,border-color 0.4s}
+.tw-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:560px}
+thead tr{border-bottom:1px solid var(--br);background:var(--sf2)}
+th{padding:8px 11px;text-align:left;font-family:"DM Mono",monospace;font-size:8px;color:var(--t);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;opacity:0.7}
+tbody tr{border-bottom:1px solid var(--br);cursor:pointer;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--sf2)}
+td{padding:10px 11px;font-size:11.5px;vertical-align:middle}
+.ic{display:flex;align-items:center;gap:7px}
+.iav{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;font-family:"Syne",sans-serif}
+.inm{font-weight:500;font-size:11.5px}.iid{font-size:8.5px;color:var(--t3);font-family:"DM Mono",monospace}
+.mn{font-family:"DM Mono",monospace;font-size:11px}
+.pill{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:8.5px;font-family:"DM Mono",monospace}
+.dot{width:4px;height:4px;border-radius:50%;background:currentColor}
+.pg{background:var(--ad);color:var(--ac);border:1px solid rgba(46,204,113,0.2)}
+.pw{background:var(--wd);color:var(--w);border:1px solid rgba(240,165,0,0.2)}
+.pd{background:var(--dd);color:var(--d);border:1px solid rgba(231,76,60,0.2)}
+.ph{background:var(--hd);color:var(--h);border:1px solid rgba(127,140,141,0.2)}
+.pb{background:var(--bld);color:var(--bl);border:1px solid rgba(52,152,219,0.2)}
+.vb{height:3px;border-radius:2px;background:var(--br);margin-top:3px;width:58px}.vbf{height:3px;border-radius:2px}
+/* MOBILE CARDS */
+.card-list{display:none}
+.mcard{background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:background .1s}
+.mcard:hover{background:var(--sf2)}
+.mcard-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.mcard-title{font-family:"Syne",sans-serif;font-weight:700;font-size:14px;line-height:1.2}
+.mcard-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mg-item .mgk{font-size:8.5px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:2px;text-transform:uppercase;letter-spacing:1px}
+.mg-item .mgv{font-size:12px;font-weight:500}
+.mgv.g{font-family:"DM Mono",monospace;color:var(--ac)}.mgv.w{color:var(--w)}.mgv.d{color:var(--d)}
+/* MODAL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(5px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.ov.on{opacity:1;pointer-events:all}
+.mo{background:var(--sf);border:1px solid var(--br);border-radius:13px;width:min(560px,95vw);max-height:87vh;overflow-y:auto;padding:20px;transform:translateY(14px);transition:transform .2s,background 0.3s}
+.ov.on .mo{transform:translateY(0)}
+.mhdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:15px}
+.mtitle{font-family:"Syne",sans-serif;font-weight:700;font-size:16px}
+.msub{font-size:10px;color:var(--t2);margin-top:2px;font-family:"DM Mono",monospace}
+.mx{width:24px;height:24px;border-radius:5px;background:var(--sf2);border:1px solid var(--br);color:var(--t2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center}
+.mx:hover{color:var(--t)}
+.msec{margin-bottom:14px}.mst{font-family:"DM Mono",monospace;font-size:8px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.ig{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.ik{font-size:8.5px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:2px}
+.iv{font-size:12.5px;font-weight:500}.iv.mg{font-family:"DM Mono",monospace;color:var(--ac)}
+.cc{background:var(--sf2);border-radius:7px;padding:12px 14px;margin-bottom:8px}
+.cc.cw{border-left:3px solid var(--w)}.cc.cd{border-left:3px solid var(--d)}.cc.cg{border-left:3px solid var(--ac)}
+.cch{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:5px}
+.ccn{font-family:"Syne",sans-serif;font-weight:700;font-size:13px}
+.ccg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ck{font-size:8px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:1px}
+.cv{font-size:11px;font-weight:500}.cv.g{color:var(--ac)}.cv.w{color:var(--w)}.cv.d{color:var(--d)}
+.pb2{height:3px;background:var(--br);border-radius:2px;margin-top:7px}.pbf{height:3px;border-radius:2px}
+.mfoot{display:flex;gap:7px;justify-content:flex-end;margin-top:13px;padding-top:12px;border-top:1px solid var(--br)}
+/* TOAST */
+.toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));right:14px;background:var(--sf);border:1px solid var(--br);border-radius:8px;padding:9px 13px;display:flex;align-items:center;gap:8px;font-size:11.5px;z-index:300;transform:translateY(60px);opacity:0;transition:all .25s;max-width:260px}
+.toast.on{transform:translateY(0);opacity:1}
+.toast.ok{border-left:3px solid var(--ac)}.toast.w{border-left:3px solid var(--w)}.toast.d{border-left:3px solid var(--d)}
+/* SYNC indicator */
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--ac);display:inline-block;margin-right:5px;animation:pulse-sync 2s infinite}
+@keyframes pulse-sync{0%,100%{opacity:1}50%{opacity:.3}}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+@keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sb{display:none}.mob-nav{display:block}
+  .main{margin-left:0;padding:14px 12px;padding-bottom:80px}
+  .stats{grid-template-columns:repeat(2,1fr);gap:8px}.sv{font-size:16px}
+  .stat{padding:12px}
+  .sl{font-size:9px}
+  .sd{display:none}
+  .tw-scroll{display:none}.card-list{display:block}
+  .btns .btn-g{display:none}
+  .ig{grid-template-columns:repeat(2,1fr)}.ccg{grid-template-columns:repeat(2,1fr)}
+  .ctls{gap:4px}.chip{font-size:10px;padding:4px 8px}
+}
+</style>
+</head>
+<body class="theme-ty">
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading">
+  <img src="data:image/png;base64,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" style="width:160px;height:auto;display:block;margin-bottom:4px">
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <div class="loading-text">Conectando con base de datos...</div>
+</div>
+
+<!-- LOGIN -->
+<div class="login-screen" id="login-screen" style="display:none">
+  <div class="login-box">
+    <!-- Holding header -->
+    <div style="text-align:center;margin-bottom:24px">
+      <img src="data:image/png;base64,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" style="width:160px;height:auto;display:block;margin:0 auto 12px">
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:#00A98D;letter-spacing:3px;text-transform:uppercase">Panel de gestión</div>
+    </div>
+    <div class="login-field">
+      <label class="login-label">Email</label>
+      <input class="login-input" type="email" id="login-email" placeholder="correo@diazintl.com"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label class="login-label">Contraseña</label>
+      <input class="login-input" type="password" id="login-pw" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP (hidden until logged in) -->
+<div id="app" style="display:none">
+
+<aside class="sb">
+  <div class="sb-logo" id="sb-logo-area">
+    <!-- Tycoon logo (default) -->
+    <div id="sb-logo-ty" class="sb-brand-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 523.84 130.1" style="width:110px;height:auto">
+        <path fill="#DBE2E9" d="M168.14,38.73h-22.08l-8.75,19.13c-2.74,5.89-4.57,9.57-6.77,14.63h-.23c-2.2-5.06-4.02-8.75-6.77-14.63l-8.75-19.13h-22.08l30.35,45.29-2.45,45.29h19.63l-2.45-45.29,30.35-45.29Z"/>
+        <path fill="#DBE2E9" d="M294.91,37.94c-25.41,0-46.08,20.67-46.08,46.08s20.67,46.08,46.08,46.08,46.08-20.67,46.08-46.08-20.67-46.08-46.08-46.08ZM294.91,115.44c-17.33,0-31.42-14.1-31.42-31.42s14.1-31.42,31.42-31.42,31.42,14.1,31.42,31.42-14.1,31.42-31.42,31.42Z"/>
+        <path fill="#DBE2E9" d="M391.98,37.94c-25.41,0-46.08,20.67-46.08,46.08s20.67,46.08,46.08,46.08,46.08-20.67,46.08-46.08-20.67-46.08-46.08-46.08ZM391.98,115.44c-17.33,0-31.42-14.1-31.42-31.42s14.1-31.42,31.42-31.42,31.42,14.1,31.42,31.42-14.1,31.42-31.42,31.42Z"/>
+        <path fill="#DBE2E9" d="M207.71,52.6c9.51,0,18.42,5.11,23.82,13.67l12.39-7.82c-8.1-12.84-21.64-20.5-36.22-20.5-24,0-43.53,20.67-43.53,46.08s19.53,46.08,43.53,46.08c13.68,0,26.29-6.6,34.61-18.12l-12.39-7.82c-5.53,7.65-13.81,12.04-22.72,12.04-15.92,0-28.87-14.1-28.87-31.42s12.95-31.42,28.87-31.42Z"/>
+        <polygon fill="#DBE2E9" points="131.45 0 66.26 3.44 0 0 0 19.63 131.45 19.63 131.45 0"/>
+        <polygon fill="#DBE2E9" points="58.36 26.99 55.91 129.31 75.54 129.31 73.09 26.99 58.36 26.99"/>
+        <path fill="#DBE2E9" d="M462.6,38.73h-14.73v90.57h17.18l-1.81-66.66c18.71,19.03,33.39,41.71,43.1,66.66h17.49c-11.61-35.07-32.82-67.03-61.23-90.57Z"/>
+        <path fill="#DBE2E9" d="M523.84,109.8V38.73h-17.17l1.11,40.95c6.14,9.56,11.52,19.65,16.06,30.13Z"/>
+      </svg>
+      <div style="font-size:8px;color:#D22630;font-family:'DM Mono',monospace;letter-spacing:2px;margin-top:3px">FONDO DE INVERSIONES</div>
+    </div>
+    <!-- Díaz logo -->
+    <div id="sb-logo-dz" class="sb-brand-logo" style="display:none">
+      <img src="data:image/png;base64,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" style="width:130px;height:auto;display:block;filter:brightness(1.05)">
+    </div>
+    <!-- KII logo -->
+    <div id="sb-logo-kii" class="sb-brand-logo" style="display:none">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:26px;color:#C7A9F8;letter-spacing:-2px;line-height:1">KII</div>
+      <div style="font-family:'DM Mono',monospace;font-size:8px;color:#9AD1F7;letter-spacing:2px;margin-top:2px">EXCHANGE</div>
+      <div style="width:36px;height:2px;background:linear-gradient(90deg,#C7A9F8,#312C7F);margin-top:5px;border-radius:2px"></div>
+    </div>
+    <div class="sb-sub"><span class="sync-dot"></span>En vivo · Supabase</div>
+  </div>
+  <div class="sb-nav">
+    <div class="nlbl">Tycoon</div>
+    <div class="ni on" onclick="goTab('ty',this)"><span class="nic">◈</span>Dashboard Tycoon</div>
+    <div class="ni" onclick="toast('Próximamente','w')"><span class="nic">◎</span>Inversionistas</div>
+    <div class="ni" onclick="toast('Próximamente','w')"><span class="nic">△</span>Rendimientos</div>
+    <div class="nlbl dz">Díaz International</div>
+    <div class="ni ni-diaz" onclick="goTab('dz',this)"><span class="nic">◇</span>Dashboard Díaz Intl</div>
+    <div class="ni ni-diaz" onclick="toast('Próximamente','w')"><span class="nic">▽</span>Facturación</div>
+    <div class="nlbl kii">KII Exchange</div>
+    <div class="ni ni-kii" onclick="goTab('kii',this)"><span class="nic">⬡</span>Dashboard KII</div>
+    <div class="ni ni-kii" onclick="toast('Próximamente','w')"><span class="nic">○</span>Wallet</div>
+  </div>
+  <div class="sb-bot">
+    <div class="user-info">
+      <div class="user-av" id="user-av">??</div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--t)" id="user-name">...</div>
+        <div class="logout-btn" onclick="doLogout()">Cerrar sesión</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<nav class="mob-nav">
+  <div class="mob-tabs">
+    <div class="mob-tab on" id="mtab-ty" onclick="goTab('ty',this)">
+      <div class="mob-tab-icon">◈</div><div class="mob-tab-label">Tycoon</div>
+    </div>
+    <div class="mob-tab" id="mtab-dz" onclick="goTab('dz',this)" style="--tab-ac:#00D5B0">
+      <div class="mob-tab-icon">◇</div><div class="mob-tab-label">Díaz</div>
+    </div>
+    <div class="mob-tab" id="mtab-kii" onclick="goTab('kii',this)">
+      <div class="mob-tab-icon">⬡</div><div class="mob-tab-label">KII</div>
+    </div>
+  </div>
+</nav>
+
+<main class="main">
+
+<!-- TYCOON TAB -->
+<div id="tab-ty">
+  <div class="topbar" style="background:linear-gradient(135deg,#012459,#01347a);margin:-22px -26px 20px;padding:20px 26px;border-radius:0;border-bottom:1px solid #D22630">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:42px;height:42px;background:rgba(210,38,48,0.15);border-radius:10px;border:1px solid rgba(210,38,48,0.4);display:flex;align-items:center;justify-content:center;font-size:20px;color:#D22630">◈</div>
+      <div><div class="ptitle" style="color:#DBE2E9">Tycoon · Contratos</div><div class="psub" id="ty-date" style="color:rgba(219,226,233,0.6)">Cargando...</div></div>
+    </div>
+    <div class="btns"><button class="btn btn-g" onclick="loadAll()">↻ Actualizar</button><button class="btn btn-p" onclick="toast('Próximamente','w')">+ Nuevo</button></div>
+  </div>
+  <div class="stats" id="ty-stats"><div class="stat" style="grid-column:span 4;text-align:center;color:var(--t3)">Cargando datos...</div></div>
+  <div class="alerts" id="ty-al"></div>
+  <div class="sh"><div class="stitle">Contratos</div><span class="badge bdg" id="ty-bdg"></span></div>
+  <div class="ctls">
+    <input class="srch" placeholder="🔍 Nombre o contrato..." oninput="renderTY()" id="ty-q">
+    <div class="chip on" onclick="setChip(this,'todos','ty');renderTY()">Todos</div>
+    <div class="chip" onclick="setChip(this,'urgente','ty');renderTY()">🔴 &lt;30d</div>
+    <div class="chip" onclick="setChip(this,'proximo','ty');renderTY()">⚠ &lt;6m</div>
+    <div class="chip" onclick="setChip(this,'hold','ty');renderTY()">On Hold</div>
+  </div>
+  <div class="tw"><div class="tw-scroll"><table>
+    <thead><tr><th>Inversionista</th><th>Contrato</th><th>Capital inicial</th><th>Saldo actual</th><th>Tipo</th><th>Próx. vencimiento</th><th>Días</th><th>Estado</th></tr></thead>
+    <tbody id="ty-body"></tbody>
+  </table></div></div>
+  <div class="card-list" id="ty-cards"></div>
+</div>
+
+<!-- DÍAZ TAB -->
+<div id="tab-dz" style="display:none">
+  <div class="topbar" style="background:linear-gradient(135deg,#00554B,#00A98D);margin:-22px -26px 20px;padding:20px 26px;border-radius:0">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:42px;height:42px;background:rgba(255,255,255,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">◇</div>
+      <div><div class="ptitle" style="color:#ffffff">Díaz International</div><div class="psub" style="color:rgba(255,255,255,0.7)">Facturación en tiempo real</div></div>
+    </div>
+    <div class="btns"><button class="btn btn-g" onclick="loadAll()">↻ Actualizar</button><button class="btn btn-p" onclick="toast('Próximamente','w')">+ Factura</button></div>
+  </div>
+  <div class="stats" id="dz-stats"><div class="stat" style="grid-column:span 4;text-align:center;color:var(--t3)">Cargando...</div></div>
+  <div id="dz-alerts"></div>
+  <div class="sh"><div class="stitle">Facturas</div><span class="badge bdb" id="dz-bdg"></span></div>
+  <div class="ctls">
+    <input class="srch" placeholder="🔍 Cliente o programa..." oninput="renderDZ()" id="dz-q">
+    <div class="chip on" onclick="setChip(this,'todos','dz');renderDZ()">Todas</div>
+    <div class="chip" onclick="setChip(this,'2026','dz');renderDZ()">2026</div>
+    <div class="chip" onclick="setChip(this,'2025','dz');renderDZ()">2025</div>
+    <div class="chip" onclick="setChip(this,'2024','dz');renderDZ()">2024</div>
+    <div class="chip" onclick="setChip(this,'pendiente','dz');renderDZ()">⚠ Cartera</div>
+  </div>
+  <div class="tw"><div class="tw-scroll"><table>
+    <thead><tr><th>#</th><th>Cliente</th><th>Programa</th><th>Moneda</th><th>Valor factura</th><th>Abonado</th><th>Saldo pendiente</th><th>Días cartera</th><th>Fecha fact.</th><th>Pago prog.</th><th>Estado</th><th>Cuenta</th><th></th></tr></thead>
+    <tbody id="dz-body"></tbody>
+  </table></div></div>
+  <div class="card-list" id="dz-cards"></div>
+</div>
+
+<!-- KII TAB -->
+<div id="tab-kii" style="display:none">
+  <div class="topbar" style="background:linear-gradient(135deg,#0C0316,#2A1D3C);margin:-22px -26px 20px;padding:20px 26px;border-radius:0;border-bottom:1px solid #5B3D7D">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div style="width:42px;height:42px;background:rgba(199,169,248,0.12);border-radius:10px;border:1px solid #5B3D7D;display:flex;align-items:center;justify-content:center;font-size:20px;color:#C7A9F8">⬡</div>
+      <div><div class="ptitle" style="color:#C7A9F8">KII Exchange · Wallet</div><div class="psub" style="color:#9AD1F7">Staking DIAS360 · 3%/mes · Sin vencimiento</div></div>
+    </div>
+    <div class="btns"><button class="btn btn-g" onclick="loadAll()">↻ Actualizar</button></div>
+  </div>
+  <div class="stats" id="kii-stats"><div class="stat" style="grid-column:span 4;text-align:center;color:var(--t3)">Cargando...</div></div>
+  <div class="sh"><div class="stitle" style="color:#C7A9F8">Posiciones KII</div><span class="badge" style="background:rgba(199,169,248,0.1);color:#C7A9F8;border:1px solid rgba(199,169,248,0.2)" id="kii-bdg"></span></div>
+  <div class="ctls">
+    <input class="srch" placeholder="🔍 Nombre o TK..." oninput="renderKII()" id="kii-q" style="border-color:#2A1D3C">
+    <div class="chip on" onclick="setChip(this,'todos','kii');renderKII()" style="--chip-on-bg:rgba(199,169,248,0.1);--chip-on-col:#C7A9F8">Todos</div>
+    <div class="chip" onclick="setChip(this,'2022','kii');renderKII()">2022</div>
+    <div class="chip" onclick="setChip(this,'2023','kii');renderKII()">2023</div>
+    <div class="chip" onclick="setChip(this,'2024p','kii');renderKII()">2024+</div>
+    <select class="srch" style="flex:0;width:125px" id="kii-so" onchange="renderKII()">
+      <option value="inv">Inversión ↓</option><option value="tok">Tokens ↓</option><option value="nom">Nombre A-Z</option>
+    </select>
+  </div>
+  <div class="tw"><div class="tw-scroll"><table>
+    <thead><tr><th>Inversionista</th><th>Contrato</th><th>Inversión USD</th><th>KII Coins</th><th>Staking DIAS360</th><th>Total Tokens</th><th>Valor @$0.02</th><th>Fecha corte</th></tr></thead>
+    <tbody id="kii-body"></tbody>
+  </table></div></div>
+  <div class="card-list" id="kii-cards"></div>
+</div>
+
+</main>
+</div><!-- /app -->
+
+<!-- MODAL -->
+<div class="ov" id="ov"><div class="mo">
+  <div class="mhdr"><div><div class="mtitle" id="m-t"></div><div class="msub" id="m-s"></div></div><button class="mx" onclick="closeM()">✕</button></div>
+  <div id="m-b"></div>
+  <div class="mfoot"><button class="btn btn-g" onclick="closeM()">Cerrar</button></div>
+</div></div>
+
+<div class="toast" id="te"><span id="ti"></span><span id="tm"></span></div>
+
+<script>
+// ── SUPABASE CONFIG ──────────────────────────────────────────
+const SB_URL  = 'https://flmfgrgnmigdwdnrzgkw.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsbWZncmdubWlnZHdkbnJ6Z2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5ODU3MzUsImV4cCI6MjA5MDU2MTczNX0.xCXujNCVTc7D7S6J8qK3qM-2ROv0n6JADT9qTN9PBlI';
+const { createClient } = supabase;
+const db = createClient(SB_URL, SB_KEY);
+
+// ── STATE ───────────────────────────────────────────────────
+let TYC_DATA = [], KII_DATA = [], FACT_DATA = [];
+let F = {ty:'todos', dz:'todos', kii:'todos'};
+const PAL = ["#2ecc71","#3498db","#e67e22","#9b59b6","#1abc9c","#e74c3c","#f39c12","#27ae60","#2980b9","#8e44ad","#16a085","#d35400"];
+const TODAY = new Date();
+
+// ── HELPERS ──────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fm = n => n==null ? '—' : '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmk = n => n==null ? '—' : Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
+const fd = s => s ? new Date(s+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+const ini = n => n.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+const todayStr = () => TODAY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+function toast(msg, type='ok') {
+  const t=$('te');
+  $('ti').textContent = type==='ok'?'✓':type==='d'?'✕':'⚠';
+  $('tm').textContent = msg;
+  t.className = 'toast on '+type;
+  setTimeout(()=>t.className='toast', 3200);
+}
+function closeM() { $('ov').classList.remove('on'); }
+$('ov').addEventListener('click', e=>{ if(e.target===$('ov')) closeM(); });
+
+function setChip(el, v, g) {
+  el.closest('.ctls').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  F[g] = v;
+}
+
+function goTab(t, navEl) {
+  ['ty','dz','kii'].forEach(x=>{ $('tab-'+x).style.display = x===t?'block':'none'; });
+  document.querySelectorAll('.ni,.mob-tab').forEach(n=>n.classList.remove('on'));
+  if(navEl) navEl.classList.add('on');
+  const mt=$('mtab-'+t); if(mt&&mt!==navEl) mt.classList.add('on');
+  // Switch full body theme per module
+  document.body.className = 'theme-'+t;
+  // Switch sidebar logo
+  ['ty','dz','kii'].forEach(x=>{
+    const el = $('sb-logo-'+x);
+    if(el) el.style.display = x===t ? 'block' : 'none';
+  });
+}
+
+// ── AUTH ─────────────────────────────────────────────────────
+async function doLogin() {
+  const email = $('login-email').value.trim();
+  const pw    = $('login-pw').value;
+  $('login-err').textContent = '';
+  if(!email||!pw) { $('login-err').textContent='Complete todos los campos'; return; }
+  const {data, error} = await db.auth.signInWithPassword({email, password: pw});
+  if(error) { $('login-err').textContent = 'Correo o contraseña incorrectos'; return; }
+  showApp(data.user);
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  location.reload();
+}
+
+let USER_ROL = "equipo";
+async function showApp(user) {
+  $('login-screen').style.display = 'none';
+  $('app').style.display = 'block';
+  // Set basic user info from email
+  const email = user.email || '';
+  const nameFromEmail = email.split('@')[0].split('.').map(w=>w[0].toUpperCase()+w.slice(1)).join(' ');
+  $('user-name').textContent = nameFromEmail;
+  $('user-av').textContent   = ini(nameFromEmail);
+  // Load profile and role from DB
+  const {data: profile} = await db.from('profiles').select('rol,nombre').eq('id', user.id).single();
+  if(profile) {
+    USER_ROL = profile.rol;
+    const displayName = profile.nombre || nameFromEmail;
+    $('user-name').textContent = displayName;
+    $('user-av').textContent   = ini(displayName);
+    // Restrict Diaz module for tycoon_kii role
+    if(USER_ROL === 'tycoon_kii') {
+      document.querySelectorAll('.ni-diaz').forEach(el => el.style.display = 'none');
+      const dzTab = $('mtab-dz');
+      if(dzTab) dzTab.style.display = 'none';
+      // Also hide the Diaz section label
+      document.querySelectorAll('.nlbl').forEach(el => {
+        if(el.textContent.includes('az')) el.style.display = 'none';
+      });
+    }
+  }
+  loadAll();
+}
+
+// ── LOAD DATA FROM SUPABASE ───────────────────────────────────
+async function loadAll() {
+  toast('Actualizando datos...','ok');
+  await Promise.all([loadTycoon(), loadDiaz(), loadKII()]);
+  toast('Datos actualizados ✓','ok');
+}
+
+async function loadTycoon() {
+  const {data, error} = await db
+    .from('vista_contratos_vencimiento')
+    .select('*')
+    .order('dias_al_vencimiento', {ascending:true});
+  if(error) { console.error(error); return; }
+  TYC_DATA = data || [];
+  buildTYStats();
+  renderTY();
+}
+
+async function loadDiaz() {
+  const {data, error} = await db
+    .from('vista_cartera_diaz')
+    .select('*')
+    .order('fecha_factura', {ascending:false});
+  if(error) { console.error(error); return; }
+  FACT_DATA = data || [];
+  buildDZStats();
+  renderDZ();
+}
+
+async function loadKII() {
+  const {data, error} = await db
+    .from('posiciones_kii')
+    .select('*')
+    .order('valor_inversion', {ascending:false});
+  if(error) { console.error(error); return; }
+  KII_DATA = data || [];
+  buildKIIStats();
+  renderKII();
+}
+
+// ── TYCOON ───────────────────────────────────────────────────
+function buildTYStats() {
+  const d = TYC_DATA;
+  const totalSaldo = d.reduce((a,c)=>a+(c.saldo_actual||0),0);
+  const urg  = d.filter(c=>c.dias_al_vencimiento<30).length;
+  const prox = d.filter(c=>c.dias_al_vencimiento<180).length;
+  $('ty-date').textContent = todayStr() + ' · Datos en tiempo real';
+  $('ty-stats').innerHTML = `
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Contratos activos</div><div class="sv" style="color:var(--t)">${d.length}</div><div class="sd">en base de datos</div><div class="si">◎</div></div>
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Capital gestionado</div><div class="sv" style="font-size:15px;color:var(--t)">${fm(totalSaldo)}</div><div class="sd">USD saldos reales</div><div class="si">◇</div></div>
+    <div class="stat" style="border-top:2px solid var(--or);border-color:rgba(255,122,0,.3)"><div class="sl">Vencen &lt;30 días</div><div class="sv" style="color:var(--or)">${urg}</div><div class="sd">acción inmediata</div><div class="si">△</div></div>
+    <div class="stat" style="border-top:2px solid var(--w);border-color:rgba(240,165,0,.25)"><div class="sl">Vencen &lt;6 meses</div><div class="sv w">${prox}</div><div class="sd">notificar 60d antes</div><div class="si">⬡</div></div>`;
+  const urgRows = d.filter(c=>c.dias_al_vencimiento<60);
+  $('ty-al').innerHTML = urgRows.map(c=>{
+    const r = c.dias_al_vencimiento<30;
+    const vd = c.fecha_vencimiento || c.proximo_vencimiento;
+    const notif = new Date(new Date(vd+'T12:00:00').setDate(new Date(vd+'T12:00:00').getDate()-60));
+    return `<div class="alert ${r?'red':'yel'}" onclick="openPerfil('${c.numero}')">
+      <div class="adot ${r?'r':'y'}"></div>
+      <div class="atext">
+        <div class="atitle ${r?'r':'y'}">${c.inversionista} · ${c.numero} — vence ${fd(vd)}</div>
+        <div class="asub">Saldo: ${fm(c.saldo_actual)} · Notificar antes: ${fd(notif.toISOString().split('T')[0])}</div>
+      </div>
+      <div class="ameta ${r?'r':'y'}">${c.dias_al_vencimiento}d</div>
+    </div>`;
+  }).join('');
+  $('ty-bdg').textContent = `${d.length} contratos`;
+}
+
+function renderTY() {
+  const q = $('ty-q').value.toLowerCase(), f = F.ty;
+  let rows = TYC_DATA.filter(c=>{
+    if(f==='urgente'&&c.dias_al_vencimiento>=30) return false;
+    if(f==='proximo'&&c.dias_al_vencimiento>=180) return false;
+    if(f==='hold'&&c.estado!=='On Hold') return false;
+    if(q&&!c.inversionista.toLowerCase().includes(q)&&!c.numero.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if(!rows.length){
+    $('ty-body').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Sin resultados</td></tr>`;
+    $('ty-cards').innerHTML=''; return;
+  }
+  $('ty-body').innerHTML = rows.map((r,ix)=>{
+    const col=PAL[ix%PAL.length], d=r.dias_al_vencimiento;
+    const vd = r.fecha_vencimiento || r.proximo_vencimiento;
+    const dp=d<30?`<span class="pill" style="background:var(--ord);color:var(--or);border:1px solid rgba(255,122,0,0.35)"><span class="dot"></span>${d}d</span>`:d<180?`<span class="pill pw"><span class="dot"></span>${d}d</span>`:`<span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--t3)">${d}d</span>`;
+    const sp=r.estado==='On Hold'?`<span class="pill ph"><span class="dot"></span>On Hold</span>`:r.estado==='Terminado'?`<span class="pill pd"><span class="dot"></span>Terminado</span>`:`<span class="pill pg"><span class="dot"></span>Activo</span>`;
+    const pct=Math.min(98,Math.max(2,(d/365)*100));
+    return `<tr onclick="openPerfil('${r.numero}')">
+      <td><div class="ic"><div class="iav" style="background:${col}18;color:${col};border:1px solid ${col}30">${ini(r.inversionista)}</div><div class="inm">${r.inversionista}</div></div></td>
+      <td><span class="mn" style="color:${col}">${r.numero}</span></td>
+      <td><span class="mn">${fm(r.valor_inicial)}</span></td>
+      <td><span class="mn g">${r.saldo_actual?fm(r.saldo_actual):'—'}</span></td>
+      <td><span style="font-size:10px;color:var(--t2)">${r.tipo_liquidacion||'—'}</span></td>
+      <td><span style="font-size:10px;color:var(--t2)">${fd(vd)}</span><div class="vb"><div class="vbf" style="width:${pct}%;background:${d<30?'var(--or)':d<180?'var(--w)':'var(--ac)'}"></div></div></td>
+      <td>${dp}</td><td>${sp}</td>
+    </tr>`;
+  }).join('');
+  $('ty-cards').innerHTML = rows.map((r,ix)=>{
+    const col=PAL[ix%PAL.length], d=r.dias_al_vencimiento;
+    const vd = r.fecha_vencimiento || r.proximo_vencimiento;
+    const dp=d<30?`<span class="pill" style="background:var(--ord);color:var(--or);border:1px solid rgba(255,122,0,0.35)"><span class="dot"></span>${d}d</span>`:d<180?`<span class="pill pw"><span class="dot"></span>${d}d</span>`:`<span style="font-size:9.5px;color:var(--t3)">${d}d</span>`;
+    return `<div class="mcard" onclick="openPerfil('${r.numero}')">
+      <div class="mcard-hdr"><div class="ic"><div class="iav" style="background:${col}18;color:${col};border:1px solid ${col}30">${ini(r.inversionista)}</div>
+        <div><div class="mcard-title">${r.inversionista}</div><div class="iid" style="color:${col}">${r.numero}</div></div></div>${dp}</div>
+      <div class="mcard-grid">
+        <div class="mg-item"><div class="mgk">Capital inicial</div><div class="mgv">${fm(r.valor_inicial)}</div></div>
+        <div class="mg-item"><div class="mgk">Saldo actual</div><div class="mgv g">${r.saldo_actual?fm(r.saldo_actual):'—'}</div></div>
+        <div class="mg-item"><div class="mgk">Vence</div><div class="mgv ${d<30?'':''}${d<30?'style="color:var(--or)"':d<180?'style="color:var(--w)"':''}">${fd(vd)}</div></div>
+        <div class="mg-item"><div class="mgk">Estado</div><div class="mgv">${r.estado}</div></div>
+      </div></div>`;
+  }).join('');
+}
+
+// ── PERFIL INVERSIONISTA ──────────────────────────────────────
+async function openPerfil(numero) {
+  // Load profile data
+  const {data: perfil} = await db.from('vista_perfil_contrato').select('*').eq('numero', numero).single();
+  const {data: movs} = await db.from('movimientos')
+    .select('*')
+    .eq('contrato_id', perfil?.contrato_id)
+    .order('fecha', {ascending: true});
+
+  const inv = TYC_DATA.find(c=>c.numero===numero) || {};
+  const col = PAL[TYC_DATA.indexOf(inv) % PAL.length] || '#2ecc71';
+  const vd = inv.fecha_vencimiento || inv.proximo_vencimiento;
+  const p = perfil || {};
+  const ms = movs || [];
+
+  // Build sparkline chart from cortes
+  const cortes = ms.filter(m=>m.tipo==='corte_rendimiento' && m.saldo_resultado);
+  let chartSVG = '';
+  if(cortes.length > 1) {
+    const vals = cortes.map(c=>c.saldo_resultado);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const W=460, H=60;
+    const pts = vals.map((v,i)=>{
+      const x=(i/(vals.length-1))*W;
+      const y=H-((v-min)/(max-min||1))*(H-8)-4;
+      return `${x},${y}`;
+    }).join(' ');
+    chartSVG = `
+      <div style="background:var(--sf2);border-radius:8px;padding:14px 16px;margin-bottom:14px">
+        <div style="font-family:'DM Mono',monospace;font-size:8.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">
+          Evolución del capital · ${cortes.length} cortes
+        </div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:60px">
+          <polyline fill="${col}" fill-opacity="0.08" stroke="none"
+            points="0,${H} ${pts} ${W},${H}"/>
+          <polyline fill="none" stroke="${col}" stroke-width="2" points="${pts}"/>
+        </svg>
+        <div style="display:flex;justify-content:space-between;margin-top:4px">
+          <span style="font-family:'DM Mono',monospace;font-size:9.5px;color:var(--t3)">${fm(vals[0])}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:9.5px;color:${col}">${fm(vals[vals.length-1])}</span>
+        </div>
+      </div>`;
+  }
+
+  // Summary grid
+  const crecPct = p.crecimiento_pct || 0;
+  const rendPct = p.rendimiento_total_pct || 0;
+  // Cumplimiento: valor absoluto del porcentaje de crecimiento, expresado como cumplimiento
+  const cumplimientoPct = Math.abs(crecPct);
+  const summaryHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:var(--sf2);border-radius:8px;padding:12px">
+        <div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Saldo actual</div>
+        <div style="font-size:14px;font-weight:600;color:#DBE2E9">${fm(inv.saldo_actual)}</div>
+      </div>
+      <div style="background:var(--sf2);border-radius:8px;padding:12px">
+        <div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Capital inicial</div>
+        <div style="font-size:14px;font-weight:600">${fm(inv.valor_inicial)}</div>
+      </div>
+      <div style="background:var(--sf2);border-radius:8px;padding:12px">
+        <div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Cumplimiento de contrato</div>
+        <div style="font-size:13px;font-weight:700;color:var(--bl)">${cumplimientoPct.toFixed(1)}% de cumplimiento</div>
+      </div>
+      <div style="background:var(--sf2);border-radius:8px;padding:12px">
+        <div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Total rendimientos</div>
+        <div style="font-size:14px;font-weight:600;color:#00D5B0">${fm(p.total_rendimientos)}</div>
+      </div>
+      <div style="background:var(--sf2);border-radius:8px;padding:12px">
+        <div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">% Rendimiento total</div>
+        <div style="font-size:14px;font-weight:600;color:${rendPct<0?'var(--d)':'#00D5B0'}">${rendPct}%</div>
+      </div>
+      <div style="background:var(--sf2);border-radius:8px;padding:12px">
+        <div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Retiros</div>
+        <div style="font-size:14px;font-weight:600;color:var(--w)">${fm(p.total_retiros)}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div><div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:2px">Inicio contrato</div><div style="font-size:12px">${fd(inv.fecha_inicio)}</div></div>
+      <div><div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:2px">Próx. vencimiento</div><div style="font-size:12px;color:${inv.dias_al_vencimiento<60?'var(--w)':'var(--t)'}">${fd(vd)}</div></div>
+      <div><div style="font-size:8.5px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:2px">Liquidación</div><div style="font-size:12px">${inv.tipo_liquidacion||'—'}</div></div>
+    </div>`;
+
+  // Annual summary by investment cycle
+  const anualHTML = (() => {
+    const cortes = ms.filter(m=>m.tipo==='corte_rendimiento' && m.fecha);
+    if(!cortes.length) return '';
+    const startYear = inv.fecha_inicio ? parseInt(inv.fecha_inicio.split('-')[0]) : 2020;
+    const cycles = {};
+    cortes.forEach(m => {
+      const mDate = new Date(m.fecha+'T12:00:00');
+      const startDate = new Date((inv.fecha_inicio||'2020-01-01')+'T12:00:00');
+      const diffDays = (mDate - startDate) / (1000*60*60*24);
+      const cycleNum = Math.floor(diffDays / 365) + 1;
+      const key = 'Ciclo '+cycleNum+' · Año '+(startYear + cycleNum - 1);
+      if(!cycles[key]) cycles[key] = {cortes:[], totalRend:0, totalReinv:0, pcts:[]};
+      cycles[key].cortes.push(m);
+      cycles[key].totalRend += m.valor_rendimiento||0;
+      cycles[key].totalReinv += m.valor_reinversion||0;
+      if(m.porcentaje) cycles[key].pcts.push(m.porcentaje);
+    });
+    const rows = Object.entries(cycles).map(([key, data]) => {
+      const avgPct = data.pcts.length ? (data.pcts.reduce((a,b)=>a+b,0)/data.pcts.length*100).toFixed(2)+'%' : '—';
+      const lastSaldo = data.cortes[data.cortes.length-1] ? data.cortes[data.cortes.length-1].saldo_resultado : null;
+      return '<tr style="border-bottom:1px solid var(--br)">'
+        +'<td style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--t)">'+key+'</td>'
+        +'<td style="padding:8px 10px;text-align:center;font-size:10px;color:var(--t2)">'+data.cortes.length+'</td>'
+        +'<td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:11px;color:var(--bl)">'+fm(data.totalRend)+'</td>'
+        +'<td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:11px;color:var(--t2)">'+fm(data.totalReinv)+'</td>'
+        +'<td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:11px;color:var(--bl)"><b>'+avgPct+'</b></td>'
+        +'<td style="padding:8px 10px;text-align:right;font-family:monospace;font-size:11px;font-weight:700">'+fm(lastSaldo)+'</td>'
+        +'</tr>';
+    }).join('');
+    return '<div style="margin-bottom:14px">'
+      +'<div style="font-family:monospace;font-size:8.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Resumen por ciclo anual</div>'
+      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:400px;background:var(--sf2);border-radius:8px;overflow:hidden">'
+      +'<thead><tr style="border-bottom:1px solid var(--br);background:var(--sf2)">'
+      +'<th style="padding:7px 10px;text-align:left;font-family:monospace;font-size:8px;color:var(--t3)">Ciclo</th>'
+      +'<th style="padding:7px 10px;text-align:center;font-family:monospace;font-size:8px;color:var(--t3)">Cortes</th>'
+      +'<th style="padding:7px 10px;text-align:right;font-family:monospace;font-size:8px;color:var(--t3)">Total rendim.</th>'
+      +'<th style="padding:7px 10px;text-align:right;font-family:monospace;font-size:8px;color:var(--t3)">Reinversión</th>'
+      +'<th style="padding:7px 10px;text-align:right;font-family:monospace;font-size:8px;color:var(--t3)">% prom.</th>'
+      +'<th style="padding:7px 10px;text-align:right;font-family:monospace;font-size:8px;color:var(--t3)">Saldo cierre</th>'
+      +'</tr></thead><tbody>'+rows+'</tbody>'
+      +'</table></div></div>';
+  })();
+
+    // Movements history
+  const movHTML = ms.length ? `
+    <div style="font-family:'DM Mono',monospace;font-size:8.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">
+      Historial de movimientos (${ms.length})
+    </div>
+    <div style="max-height:220px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:400px">
+        <thead><tr style="border-bottom:1px solid var(--br)">
+          <th style="padding:6px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">Memo</th>
+          <th style="padding:6px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">Fecha</th>
+          <th style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">Capital base</th>
+          <th style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">% Período</th>
+          <th style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">$ Rendimiento</th>
+          <th style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">Reinversión</th>
+          <th style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">Saldo</th>
+          <th style="padding:6px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:8px;color:var(--t3);letter-spacing:1px">Nota</th>
+          ${USER_ROL==='admin' ? '<th style="padding:6px 8px;font-size:8px;color:var(--t3)"></th>' : ''}
+        </tr></thead>
+        <tbody>
+          ${[...ms].reverse().map(m=>{
+            const isCorte = m.tipo==='corte_rendimiento';
+            const isRetiro = m.tipo==='retiro_capital';
+            const isCapNuevo = m.tipo==='capital_nuevo';
+            const rowBg = isRetiro?'background:rgba(210,38,48,0.04)':isCapNuevo?'background:rgba(0,213,176,0.04)':'';
+            const tipoColor = isCorte?'var(--bl)':isRetiro?'#D22630':isCapNuevo?'var(--bl)':'var(--t2)';
+            const tipoLabel = isCorte?'Corte':isRetiro?'Retiro':isCapNuevo?'Capital nuevo':'Ajuste';
+            const pctDisplay = m.porcentaje ? (m.porcentaje*100).toFixed(2)+'%' : '—';
+            return `<tr style="border-bottom:1px solid var(--br);${rowBg}">
+              <td style="padding:7px 8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--bl)">${m.numero_memo||'—'}<div style="font-size:8px;color:${tipoColor}">${tipoLabel}</div></td>
+              <td style="padding:7px 8px;font-size:10px;color:var(--t2)">${fd(m.fecha)}</td>
+              <td style="padding:7px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:10px">${m.capital_base?fm(m.capital_base):'—'}</td>
+              <td style="padding:7px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:10px;color:${m.porcentaje&&m.porcentaje<0?'var(--d)':m.porcentaje?'var(--bl)':'var(--t3)'}"><b>${pctDisplay}</b></td>
+              <td style="padding:7px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:10px;color:${m.valor_rendimiento&&m.valor_rendimiento<0?'var(--d)':m.valor_rendimiento?'var(--bl)':m.pago_capital_mov&&m.pago_capital_mov<0?'var(--d)':'var(--t3)'}">${m.valor_rendimiento?fm(m.valor_rendimiento):m.pago_capital_mov?fm(m.pago_capital_mov):'—'}</td>
+              <td style="padding:7px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:10px;color:var(--t2)">${m.valor_reinversion?fm(m.valor_reinversion):'—'}</td>
+              <td style="padding:7px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--t)">${fm(m.saldo_resultado)}</td>
+              <td style="padding:7px 8px;font-size:9px;color:var(--t3);max-width:120px">${m.anotaciones||''}</td>
+              <td style="padding:7px 8px;white-space:nowrap">
+                ${USER_ROL==='admin' ? `
+                  <button onclick="editarMov('${m.id}','${numero}')" style="background:rgba(0,213,176,0.1);border:1px solid #00A98D;color:#00D5B0;border-radius:5px;padding:3px 8px;font-size:9px;cursor:pointer;margin-right:4px">Editar</button>
+                  <button onclick="eliminarMov('${m.id}','${numero}')" style="background:rgba(210,38,48,0.1);border:1px solid #D22630;color:#D22630;border-radius:5px;padding:3px 8px;font-size:9px;cursor:pointer">Borrar</button>
+                ` : ''}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : `<div style="color:var(--t3);font-size:12px;padding:12px 0;text-align:center">Sin movimientos registrados</div>`;
+
+  // New movement form
+  const formHTML = `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--br)">
+      <div style="font-family:'DM Mono',monospace;font-size:8.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">
+        ➕ Registrar nuevo movimiento
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Tipo</div>
+          <select id="mov-tipo" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+            <option value="corte_rendimiento">Corte de rendimiento</option>
+            <option value="retiro_capital">Retiro de capital</option>
+            <option value="capital_nuevo">Capital nuevo</option>
+            <option value="ajuste">Ajuste / N.C.</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Fecha</div>
+          <input id="mov-fecha" type="date" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Memo #</div>
+          <input id="mov-memo" type="text" placeholder="ej: 1331" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Capital base</div>
+          <input id="mov-capital" type="number" placeholder="0.00" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">% Período</div>
+          <input id="mov-pct" type="number" step="0.001" placeholder="0.03" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">$ Rendimiento</div>
+          <input id="mov-rend" type="number" placeholder="0.00" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">$ Reinversión</div>
+          <input id="mov-reinv" type="number" placeholder="0.00" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Saldo resultado</div>
+          <input id="mov-saldo" type="number" placeholder="0.00" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Anotaciones</div>
+        <input id="mov-nota" type="text" placeholder="Observaciones opcionales..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <button onclick="guardarMovimiento('${numero}')" style="width:100%;background:var(--ac);color:#07100a;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">
+        Guardar movimiento
+      </button>
+      <div id="mov-err" style="font-size:11px;color:var(--d);margin-top:6px;min-height:14px"></div>
+    </div>`;
+
+  $('m-t').textContent = inv.inversionista || numero;
+  $('m-s').textContent = `${numero} · ${inv.tipo_liquidacion||''} · ${inv.estado||''}`;
+  $('m-b').innerHTML = summaryHTML + chartSVG + anualHTML + movHTML + formHTML;
+  $('ov').classList.add('on');
+}
+
+async function guardarMovimiento(numero) {
+  const contrato = TYC_DATA.find(c=>c.numero===numero);
+  if(!contrato) return;
+
+  // Get contrato_id
+  const {data: ct} = await db.from('contratos_tycoon').select('id').eq('numero', numero).single();
+  if(!ct) { $('mov-err').textContent='Error: contrato no encontrado'; return; }
+
+  const tipo   = $('mov-tipo').value;
+  const fecha  = $('mov-fecha').value;
+  const memo   = $('mov-memo').value || null;
+  const cap    = parseFloat($('mov-capital').value) || null;
+  const pct    = parseFloat($('mov-pct').value) || null;
+  const rend   = parseFloat($('mov-rend').value) || null;
+  const reinv  = parseFloat($('mov-reinv').value) || null;
+  const saldo  = parseFloat($('mov-saldo').value) || null;
+  const nota   = $('mov-nota').value || null;
+
+  if(!fecha) { $('mov-err').textContent='La fecha es obligatoria'; return; }
+  if(!saldo) { $('mov-err').textContent='El saldo resultado es obligatorio'; return; }
+
+  const {error} = await db.from('movimientos').insert({
+    contrato_id: ct.id,
+    numero_memo: memo,
+    fecha, tipo,
+    capital_base: cap,
+    porcentaje: pct,
+    valor_rendimiento: rend,
+    valor_reinversion: reinv,
+    saldo_resultado: saldo,
+    anotaciones: nota
+  });
+
+  if(error) { $('mov-err').textContent='Error al guardar: '+error.message; return; }
+
+  // Update saldo_actual in contract
+  if(saldo) {
+    await db.from('contratos_tycoon').update({saldo_actual: saldo}).eq('numero', numero);
+  }
+
+  toast('Movimiento guardado ✓','ok');
+  closeM();
+  await loadTycoon();
+}
+
+// ── DÍAZ ──────────────────────────────────────────────────────
+function buildDZStats() {
+  const d = FACT_DATA;
+  const tot2026 = d.filter(f=>f.año===2026&&f.moneda==='USD').reduce((a,f)=>a+(f.valor_factura||f.valor||0),0);
+  const tot2025 = d.filter(f=>f.año===2025&&f.moneda==='USD').reduce((a,f)=>a+(f.valor_factura||f.valor||0),0);
+  const pendiente = d.filter(f=>['Abono','Pendiente'].includes(f.estado)).length;
+  const saldoUSD = d.filter(f=>f.moneda==='USD'&&(f.saldo_pendiente||0)>0&&!['Pagada','Anulada','Castigo'].includes(f.estado)).reduce((a,f)=>a+(f.saldo_pendiente||0),0);
+  const saldoEUR = d.filter(f=>f.moneda==='EUR'&&(f.saldo_pendiente||0)>0&&!['Pagada','Anulada','Castigo'].includes(f.estado)).reduce((a,f)=>a+(f.saldo_pendiente||0),0);
+  $('dz-stats').innerHTML = `
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Total facturas</div><div class="sv" style="color:var(--ac)">${d.length}</div><div class="sd">2022–2026</div><div class="si">◎</div></div>
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Facturado 2026</div><div class="sv" style="font-size:15px;color:var(--ac)">${fm(tot2026)}</div><div class="sd">USD · ${d.filter(f=>f.año===2026).length} facturas</div><div class="si">◇</div></div>
+    <div class="stat" style="border-top:2px solid var(--ac);opacity:0.85"><div class="sl">Facturado 2025</div><div class="sv" style="font-size:15px;color:var(--ac)">${fm(tot2025)}</div><div class="sd">USD · ${d.filter(f=>f.año===2025).length} facturas</div><div class="si">△</div></div>
+    <div class="stat" style="border-top:2px solid var(--w);border-color:rgba(240,165,0,.25)">
+      <div class="sl">Cartera pendiente</div>
+      ${saldoUSD>0?`<div class="sv w" style="font-size:16px">${fm(saldoUSD)}<span style="font-size:9px;margin-left:4px">USD</span></div>`:''}
+      ${saldoEUR>0?`<div class="sv w" style="font-size:16px">${fm(saldoEUR)}<span style="font-size:9px;margin-left:4px">EUR</span></div>`:''}
+      ${!saldoUSD&&!saldoEUR?`<div class="sv" style="font-size:16px;color:var(--ac)">$0.00</div>`:''}
+      <div class="sd">${pendiente} factura(s) por cobrar</div>
+      <div class="si">⬡</div>
+    </div>`;
+  $('dz-bdg').textContent = `${d.length} registros`;
+  // Alertas de pago programado
+  const hoy = new Date();
+  const alertasPago = d.filter(f=>{
+    if(['Pagada','Anulada','Castigo'].includes(f.estado)) return false;
+    if(!f.fecha_pago_programado) return false;
+    const dias = Math.floor((new Date(f.fecha_pago_programado+'T12:00:00')-hoy)/(1000*60*60*24));
+    return dias <= 3;
+  });
+  $('dz-alerts').innerHTML = alertasPago.map(f=>{
+    const dias = Math.floor((new Date(f.fecha_pago_programado+'T12:00:00')-hoy)/(1000*60*60*24));
+    const vencido = dias < 0;
+    return `<div class="alert ${vencido?'red':'yel'}" onclick="abrirPago(${f.numero_factura},'${f.cliente_nombre}',${f.saldo_pendiente||0},'${f.moneda}','${f.estado}')">
+      <div class="adot ${vencido?'r':'y'}"></div>
+      <div class="atext">
+        <div class="atitle ${vencido?'r':'y'}">${f.cliente_nombre} · #${f.numero_factura} — pago ${vencido?'VENCIDO':'programado'} ${fd(f.fecha_pago_programado)}</div>
+        <div class="asub" style="color:var(--ac)">Saldo: ${fm(f.saldo_pendiente||0)} ${f.moneda} · ${vencido?Math.abs(dias)+' días vencido':dias===0?'HOY':dias+' días'}</div>
+      </div>
+      <div class="ameta ${vencido?'r':'y'}">${vencido?'-'+Math.abs(dias)+'d':dias+'d'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDZ() {
+  const q=$('dz-q').value.toLowerCase(), f=F.dz;
+  let data = FACT_DATA.filter(r=>{
+    if(f==='2026'&&r.año!==2026) return false;
+    if(f==='2025'&&r.año!==2025) return false;
+    if(f==='2024'&&r.año!==2024) return false;
+    if(f==='pendiente'&&!['Abono','Pendiente'].includes(r.estado)) return false;
+    if(q&&!r.cliente_nombre.toLowerCase().includes(q)&&!(r.programa_servicio||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const sp = r => r.estado==='Pagada'?`<span class="pill pg"><span class="dot"></span>Pagada</span>`:
+    r.estado==='Abono'?`<span class="pill pw"><span class="dot"></span>Abono</span>`:
+    r.estado==='Pendiente'?`<span class="pill pd"><span class="dot"></span>Pendiente</span>`:
+    r.estado==='Anulada'?`<span class="pill ph"><span class="dot"></span>Anulada</span>`:
+    r.estado==='Castigo'?`<span class="pill pd" style="background:rgba(127,140,141,0.1);color:var(--h);border-color:var(--h)"><span class="dot"></span>Castigo</span>`:
+    `<span class="pill ph"><span class="dot"></span>${r.estado}</span>`;
+  if(!data.length){
+    $('dz-body').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Sin resultados</td></tr>`;
+    $('dz-cards').innerHTML=''; return;
+  }
+  $('dz-body').innerHTML = data.map(r=>{
+    const saldo = r.saldo_pendiente != null ? r.saldo_pendiente : (r.valor_factura || r.valor || 0);
+    const valorFactura = r.valor_factura || r.valor || 0;
+    const abonado = r.total_pagado || 0;
+    const fechaFact = new Date(r.fecha_factura+'T12:00:00');
+    const esPendiente = !['Pagada','Anulada','Castigo'].includes(r.estado);
+    const diasCartera = esPendiente ? Math.floor((new Date()-fechaFact)/(1000*60*60*24)) : null;
+    const diasColor = diasCartera>90?'var(--or)':diasCartera>60?'var(--w)':'var(--t2)';
+    // Fecha pago programado
+    const fprog = r.fecha_pago_programado;
+    const diasAlPago = fprog ? Math.floor((new Date(fprog+'T12:00:00')-new Date())/(1000*60*60*24)) : null;
+    const alertaPago = diasAlPago!=null && diasAlPago<=3 && diasAlPago>=0 && esPendiente;
+    const pagoPasado = diasAlPago!=null && diasAlPago<0 && esPendiente;
+    return `<tr style="${alertaPago?'background:rgba(240,165,0,0.05)':pagoPasado?'background:rgba(255,122,0,0.05)':''}">
+    <td><span class="mn" style="color:var(--ac)">#${r.numero_factura}</span></td>
+    <td><span style="font-size:11.5px;font-weight:500">${r.cliente_nombre}</span></td>
+    <td><span style="font-size:10px;color:var(--t2)">${r.programa_servicio||'—'}</span></td>
+    <td><span class="pill pb" style="font-size:8px">${r.moneda}</span></td>
+    <td><span class="mn">${fm(valorFactura)}</span></td>
+    <td><span class="mn" style="color:var(--ac)">${abonado>0?fm(abonado):'—'}</span></td>
+    <td><span class="mn" style="color:${saldo>0?'var(--w)':'var(--ac)'};font-weight:700">${fm(saldo)}</span></td>
+    <td><span style="font-size:10px;color:${diasColor}">${diasCartera!=null?diasCartera+'d':'—'}</span></td>
+    <td><span style="font-size:10px;color:var(--t2)">${fd(r.fecha_factura)}</span></td>
+    <td>
+      ${esPendiente ? `<div style="display:flex;align-items:center;gap:4px">
+        ${fprog ? `<span style="font-size:10px;color:${alertaPago?'var(--w)':pagoPasado?'var(--or)':'var(--t2)'};font-weight:${alertaPago||pagoPasado?'700':'400'}">${alertaPago?'⚠ ':''}${pagoPasado?'[!] ':''}${fd(fprog)}</span>` : ''}
+        <button onclick="programarPago(${r.numero_factura},'${r.cliente_nombre}','${fprog||''}')" style="background:var(--sf2);border:1px solid var(--br);color:var(--t3);border-radius:4px;padding:2px 6px;font-size:8.5px;cursor:pointer">${fprog?'✎':'+ fecha'}</button>
+      </div>` : '<span style="font-size:9px;color:var(--t3)">—</span>'}
+    </td>
+    <td>${sp(r)}</td>
+    <td><span style="font-size:9.5px;color:var(--t3)">${r.cuenta_recaudo||'—'}</span></td>
+    <td>${esPendiente?`<button onclick="abrirPago(${r.numero_factura},'${r.cliente_nombre}',${saldo},'${r.moneda}','${r.estado}')" style="background:rgba(0,169,141,0.15);border:1px solid var(--ac);color:var(--ac);border-radius:5px;padding:3px 8px;font-size:9px;cursor:pointer;white-space:nowrap">+ Pago</button>`:'<span style="font-size:9px;color:var(--t3)">—</span>'}</td>
+  </tr>`;}).join('');
+  $('dz-cards').innerHTML = data.map(r=>{
+    const saldo = r.saldo_pendiente != null ? r.saldo_pendiente : (r.valor_factura || r.valor || 0);
+    const valorFactura = r.valor_factura || r.valor || 0;
+    const diasCartera = r.estado!=='Pagada' ? Math.floor((new Date()-new Date(r.fecha_factura+'T12:00:00'))/(1000*60*60*24)) : null;
+    const diasColor = diasCartera>90?'var(--or)':diasCartera>60?'var(--w)':'var(--t2)';
+    return `<div class="mcard">
+    <div class="mcard-hdr"><div><div class="mcard-title">${r.cliente_nombre}</div><div class="iid" style="color:var(--ac)">#${r.numero_factura} · ${fd(r.fecha_factura)}</div></div>${sp(r)}</div>
+    <div class="mcard-grid">
+      <div class="mg-item"><div class="mgk">Valor factura</div><div class="mgv">${fm(valorFactura)}</div></div>
+      <div class="mg-item"><div class="mgk">Saldo pendiente</div><div class="mgv" style="color:${saldo>0?'var(--w)':'var(--ac)'};font-weight:700">${fm(saldo)}</div></div>
+      <div class="mg-item"><div class="mgk">Moneda</div><div class="mgv">${r.moneda}</div></div>
+      <div class="mg-item"><div class="mgk">Dias cartera</div><div class="mgv" style="color:${diasColor}">${diasCartera!=null?diasCartera+'d':'—'}</div></div>
+      <div class="mg-item" style="grid-column:span 2"><div class="mgk">Programa</div><div class="mgv" style="font-size:11px">${r.programa_servicio||'—'}</div></div>
+    </div>
+    ${r.estado!=='Pagada'&&r.estado!=='Anulada'&&r.estado!=='Castigo'?`<button onclick="abrirPago(${r.numero_factura},'${r.cliente_nombre}',${saldo},'${r.moneda}','${r.estado}')" style="width:100%;margin-top:10px;background:rgba(0,169,141,0.15);border:1px solid var(--ac);color:var(--ac);border-radius:7px;padding:8px;font-size:12px;cursor:pointer">+ Registrar pago</button>`:''}
+    </div>`;}).join('');
+}
+
+// ── KII ───────────────────────────────────────────────────────
+function buildKIIStats() {
+  const d = KII_DATA;
+  const ti = d.reduce((a,i)=>a+i.valor_inversion,0);
+  const tt = d.reduce((a,i)=>a+(i.total_tokens||0),0);
+  const tu = d.reduce((a,i)=>a+(i.total_tokens||0)*0.02,0);
+  $('kii-stats').innerHTML = `
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Inversionistas KII</div><div class="sv" style="color:var(--ac)">${d.length}</div><div class="sd">posiciones permanentes</div><div class="si">⬡</div></div>
+    <div class="stat" style="border-top:2px solid #9AD1F7"><div class="sl">Total invertido</div><div class="sv" style="font-size:14px;color:#9AD1F7">${fm(ti)}</div><div class="sd">USD histórico</div><div class="si">◇</div></div>
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Total tokens KII</div><div class="sv" style="color:var(--ac)">${fmk(tt)}</div><div class="sd">coins + staking acum.</div><div class="si">○</div></div>
+    <div class="stat" style="border-top:2px solid #9AD1F7"><div class="sl">Valor @$0.02</div><div class="sv" style="font-size:14px;color:#9AD1F7">${fm(tu)}</div><div class="sd">precio referencia</div><div class="si">△</div></div>`;
+  $('kii-bdg').textContent = `${d.length} posiciones · ${fmk(tt)} tokens`;
+}
+
+function renderKII() {
+  const q=$('kii-q').value.toLowerCase(), s=$('kii-so').value, f=F.kii;
+  let data = KII_DATA.filter(i=>{
+    if(f==='2022'&&i.fecha_inversion&&!i.fecha_inversion.startsWith('2022')) return false;
+    if(f==='2023'&&i.fecha_inversion&&!i.fecha_inversion.startsWith('2023')) return false;
+    if(f==='2024p'&&i.fecha_inversion&&(i.fecha_inversion.startsWith('2022')||i.fecha_inversion.startsWith('2023'))) return false;
+    if(q&&!i.inversionista_nombre.toLowerCase().includes(q)&&!i.contrato.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if(s==='inv') data.sort((a,b)=>b.valor_inversion-a.valor_inversion);
+  else if(s==='tok') data.sort((a,b)=>(b.total_tokens||0)-(a.total_tokens||0));
+  else data.sort((a,b)=>a.inversionista_nombre.localeCompare(b.inversionista_nombre));
+  if(!data.length){
+    $('kii-body').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Sin resultados</td></tr>`;
+    $('kii-cards').innerHTML=''; return;
+  }
+  $('kii-body').innerHTML = data.map((i,ix)=>{
+    const col=PAL[ix%PAL.length];
+    const tt=i.total_tokens||0, st=i.staking_acumulado||0, kc=i.kii_coins||0;
+    const sr=kc>0?Math.round((st/kc)*100):0;
+    return `<tr>
+      <td><div class="ic"><div class="iav" style="background:${col}18;color:${col};border:1px solid ${col}30">${ini(i.inversionista_nombre)}</div>
+        <div><div class="inm">${i.inversionista_nombre}</div><div class="iid">${fd(i.fecha_inversion)}</div></div></div></td>
+      <td><span class="mn" style="color:${col};font-size:10px">${i.contrato}</span></td>
+      <td><span class="mn g">${i.valor_inversion>0?fm(i.valor_inversion):'—'}</span></td>
+      <td><span class="mn" style="font-size:10px">${fmk(kc)}</span></td>
+      <td><div><span class="mn" style="font-size:10px;color:var(--bl)">${fmk(st)}</span>
+        <div class="vb"><div class="vbf" style="width:${sr}%;background:var(--bl)"></div></div></div></td>
+      <td><span class="mn" style="font-weight:600">${fmk(tt)}</span></td>
+      <td><span class="mn g">${fm(tt*0.02)}</span></td>
+      <td><span style="font-size:9.5px;color:var(--t2)">${fd(i.fecha_corte)}</span></td>
+    </tr>`;
+  }).join('');
+  $('kii-cards').innerHTML = data.map((i,ix)=>{
+    const col=PAL[ix%PAL.length];
+    const tt=i.total_tokens||0;
+    return `<div class="mcard">
+      <div class="mcard-hdr"><div class="ic"><div class="iav" style="background:${col}18;color:${col};border:1px solid ${col}30">${ini(i.inversionista_nombre)}</div>
+        <div><div class="mcard-title">${i.inversionista_nombre}</div><div class="iid" style="color:${col}">${i.contrato} · ${fd(i.fecha_inversion)}</div></div></div>
+        <span class="pill pg" style="font-size:8.5px">${fd(i.fecha_corte)}</span></div>
+      <div class="mcard-grid">
+        <div class="mg-item"><div class="mgk">Inversión</div><div class="mgv g">${i.valor_inversion>0?fm(i.valor_inversion):'—'}</div></div>
+        <div class="mg-item"><div class="mgk">KII Coins</div><div class="mgv">${fmk(i.kii_coins)}</div></div>
+        <div class="mg-item"><div class="mgk">Staking acum.</div><div class="mgv" style="color:var(--bl)">${fmk(i.staking_acumulado)}</div></div>
+        <div class="mg-item"><div class="mgk">Total tokens</div><div class="mgv" style="font-weight:700">${fmk(tt)}</div></div>
+        <div class="mg-item" style="grid-column:span 2"><div class="mgk">Valor @$0.02</div><div class="mgv g" style="font-size:14px">${fm(tt*0.02)}</div></div>
+      </div></div>`;
+  }).join('');
+}
+
+// ── REGISTRAR PAGO DÍAZ ──────────────────────────────────────
+async function abrirPago(numFactura, cliente, valorFactura, moneda, estadoActual) {
+  $('m-t').textContent = 'Pagos — Factura #' + numFactura;
+  $('m-s').textContent = cliente;
+
+  // Cargar pagos existentes
+  const {data: pagos} = await db.from('pagos_facturas')
+    .select('*')
+    .eq('numero_factura', numFactura)
+    .order('fecha_pago', {ascending: false});
+
+  const pagosHTML = pagos && pagos.length ? `
+    <div style="margin-bottom:14px">
+      <div style="font-family:'DM Mono',monospace;font-size:8.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Pagos registrados</div>
+      ${pagos.map(p=>`
+        <div style="background:var(--sf2);border-radius:7px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--ac)">${fm(p.valor_pagado)} ${p.moneda||moneda}</div>
+            <div style="font-size:9.5px;color:var(--t2)">${fd(p.fecha_pago)}${p.cuenta?' · '+p.cuenta:''}</div>
+            ${p.observaciones?`<div style="font-size:9px;color:var(--t3);margin-top:2px">${p.observaciones}</div>`:''}
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button onclick="editarPago('${p.id}',${numFactura},'${cliente}',${valorFactura},'${moneda}','${estadoActual}')" style="background:rgba(0,213,176,0.1);border:1px solid #00A98D;color:#00D5B0;border-radius:5px;padding:3px 8px;font-size:9px;cursor:pointer">Editar</button>
+            <button onclick="eliminarPago('${p.id}',${numFactura},'${cliente}',${valorFactura},'${moneda}','${estadoActual}')" style="background:rgba(210,38,48,0.1);border:1px solid #D22630;color:#D22630;border-radius:5px;padding:3px 8px;font-size:9px;cursor:pointer">Borrar</button>
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
+  $('m-b').innerHTML = `
+    ${pagosHTML}
+    <div style="font-family:'DM Mono',monospace;font-size:8.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Registrar nuevo pago</div>
+    <div style="background:var(--sf2);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Saldo pendiente</div>
+      <div style="font-size:16px;font-weight:700;color:var(--w)">${fm(valorFactura)} ${moneda}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Tipo</div>
+        <select id="pago-tipo" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none" onchange="checkPagoCompleto(${valorFactura})">
+          <option value="abono">Abono parcial</option>
+          <option value="completo">Pago completo</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Fecha</div>
+        <input id="pago-fecha" type="date" value="${new Date().toISOString().split('T')[0]}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Valor pagado</div>
+        <input id="pago-valor" type="number" placeholder="0.00" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Cuenta</div>
+        <input id="pago-cuenta" type="text" placeholder="BofA, Diaz Intl..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Observaciones</div>
+      <input id="pago-obs" type="text" placeholder="Opcional..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+    </div>
+    <button onclick="guardarPago(${numFactura},'${cliente}','${moneda}',${valorFactura})" style="width:100%;background:#00A98D;color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">Guardar pago</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <button onclick="cambiarEstadoFactura(${numFactura},'Anulada','¿Anular esta factura? El cliente no tomó el servicio.')" style="background:rgba(127,140,141,0.1);border:1px solid var(--h);color:var(--h);border-radius:7px;padding:7px;font-size:11px;cursor:pointer">🚫 Anular factura</button>
+      <button onclick="cambiarEstadoFactura(${numFactura},'Castigo','¿Registrar como castigo de cartera? El saldo se dará por perdido.')" style="background:rgba(210,38,48,0.08);border:1px solid #D22630;color:#D22630;border-radius:7px;padding:7px;font-size:11px;cursor:pointer">✗ Castigo cartera</button>
+    </div>
+    <div id="pago-err" style="font-size:11px;color:var(--d);margin-top:6px;min-height:14px"></div>`;
+  $('ov').classList.add('on');
+}
+
+async function editarPago(pagoId, numFactura, cliente, valorFactura, moneda, estadoActual) {
+  const {data: pago} = await db.from('pagos_facturas').select('*').eq('id', pagoId).single();
+  if (!pago) { toast('Error cargando pago','d'); return; }
+
+  $('m-t').textContent = 'Editar pago';
+  $('m-s').textContent = 'Factura #' + numFactura + ' · ' + cliente;
+  $('m-b').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Fecha</div>
+        <input id="epago-fecha" type="date" value="${pago.fecha_pago}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Valor pagado</div>
+        <input id="epago-valor" type="number" value="${pago.valor_pagado}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Cuenta</div>
+        <input id="epago-cuenta" type="text" value="${pago.cuenta||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Observaciones</div>
+        <input id="epago-obs" type="text" value="${pago.observaciones||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="guardarEditPago('${pagoId}',${numFactura},'${cliente}',${valorFactura},'${moneda}','${estadoActual}')" style="flex:1;background:#00A98D;color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+      <button onclick="abrirPago(${numFactura},'${cliente}',${valorFactura},'${moneda}','${estadoActual}')" style="background:var(--sf2);color:var(--t2);border:1px solid var(--br);border-radius:7px;padding:9px 14px;cursor:pointer">Cancelar</button>
+    </div>
+    <div id="epago-err" style="font-size:11px;color:var(--d);margin-top:6px"></div>`;
+  $('ov').classList.add('on');
+}
+
+async function guardarEditPago(pagoId, numFactura, cliente, valorFactura, moneda, estadoActual) {
+  const fecha = $('epago-fecha').value;
+  const valor = parseFloat($('epago-valor').value);
+  const cuenta = $('epago-cuenta').value || null;
+  const obs   = $('epago-obs').value || null;
+
+  if (!fecha || !valor) { $('epago-err').textContent = 'Fecha y valor son obligatorios'; return; }
+
+  const {error} = await db.from('pagos_facturas').update({
+    fecha_pago: fecha, valor_pagado: valor, cuenta, observaciones: obs
+  }).eq('id', pagoId);
+
+  if (error) { $('epago-err').textContent = 'Error: ' + error.message; return; }
+
+  toast('Pago actualizado ✓','ok');
+  await loadDiaz();
+  closeM();
+}
+
+async function eliminarPago(pagoId, numFactura, cliente, valorFactura, moneda, estadoActual) {
+  if (!confirm('¿Eliminar este pago? Esta acción no se puede deshacer.')) return;
+
+  const {error} = await db.from('pagos_facturas').delete().eq('id', pagoId);
+  if (error) { toast('Error al eliminar','d'); return; }
+
+  // Recalcular estado de la factura
+  const {data: pagosRestantes} = await db.from('pagos_facturas')
+    .select('valor_pagado')
+    .eq('numero_factura', numFactura);
+  
+  const totalPagado = (pagosRestantes||[]).reduce((a,p)=>a+p.valor_pagado,0);
+  const nuevoEstado = totalPagado <= 0 ? 'Pendiente' : totalPagado >= valorFactura ? 'Pagada' : 'Abono';
+  
+  await db.from('facturas_diaz').update({estado: nuevoEstado}).eq('numero_factura', numFactura);
+
+  toast('Pago eliminado ✓','ok');
+  await loadDiaz();
+  abrirPago(numFactura, cliente, valorFactura, moneda, nuevoEstado);
+}
+
+function checkPagoCompleto(valorFactura) {
+  if ($('pago-tipo').value === 'completo') {
+    $('pago-valor').value = valorFactura;
+  } else {
+    $('pago-valor').value = '';
+  }
+}
+
+async function guardarPago(numFactura, cliente, moneda, valorFactura) {
+  const tipo   = $('pago-tipo').value;
+  const fecha  = $('pago-fecha').value;
+  const valor  = parseFloat($('pago-valor').value);
+  const cuenta = $('pago-cuenta').value || null;
+  const obs    = $('pago-obs').value || null;
+
+  if (!fecha) { $('pago-err').textContent = 'La fecha es obligatoria'; return; }
+  if (!valor || valor <= 0) { $('pago-err').textContent = 'El valor es obligatorio'; return; }
+
+  // Insertar pago
+  const {error: errPago} = await db.from('pagos_facturas').insert({
+    numero_factura: numFactura,
+    cliente_nombre: cliente,
+    moneda,
+    valor_pagado: valor,
+    fecha_pago: fecha,
+    cuenta,
+    observaciones: obs
+  });
+
+  if (errPago) { $('pago-err').textContent = 'Error: ' + errPago.message; return; }
+
+  // Calcular saldo real después del pago
+  const {data: todosLosPagos} = await db.from('pagos_facturas')
+    .select('valor_pagado')
+    .eq('numero_factura', numFactura);
+  
+  const totalPagado = (todosLosPagos||[]).reduce((a,p)=>a+p.valor_pagado, 0);
+  
+  // Determinar estado basado en saldo real
+  let nuevoEstado;
+  if (tipo === 'completo' || totalPagado >= valorFactura) {
+    nuevoEstado = 'Pagada';
+  } else if (totalPagado > 0) {
+    nuevoEstado = 'Abono';
+  } else {
+    nuevoEstado = 'Pendiente';
+  }
+
+  const {error: errFact} = await db.from('facturas_diaz')
+    .update({estado: nuevoEstado})
+    .eq('numero_factura', numFactura);
+
+  if (errFact) { $('pago-err').textContent = 'Error actualizando factura: ' + errFact.message; return; }
+
+  toast('Pago registrado · Factura ' + (nuevoEstado === 'Pagada' ? 'PAGADA ✓' : 'con abono ✓'), 'ok');
+  closeM();
+  await loadDiaz();
+}
+
+// ── PROGRAMAR FECHA DE PAGO ──────────────────────────────────
+async function programarPago(numFactura, cliente, fechaActual) {
+  const nuevaFecha = prompt('Fecha de pago programado (AAAA-MM-DD):', fechaActual || new Date().toISOString().split('T')[0]);
+  if (!nuevaFecha) return;
+  
+  const {error} = await db.from('facturas_diaz')
+    .update({fecha_pago_programado: nuevaFecha || null})
+    .eq('numero_factura', numFactura);
+  
+  if (error) { toast('Error: ' + error.message, 'd'); return; }
+  toast('Fecha de pago programada ✓', 'ok');
+  await loadDiaz();
+}
+
+// ── ANULAR / CASTIGO FACTURAS ────────────────────────────────
+async function cambiarEstadoFactura(numFactura, nuevoEstado, mensaje) {
+  if (!confirm(mensaje)) return;
+
+  const obs = nuevoEstado === 'Castigo' 
+    ? prompt('Observación (opcional):', 'Castigo de cartera - cliente no pagó')
+    : null;
+
+  const {error} = await db.from('facturas_diaz')
+    .update({
+      estado: nuevoEstado,
+      observaciones: obs || (nuevoEstado === 'Anulada' ? 'Factura anulada' : 'Castigo de cartera')
+    })
+    .eq('numero_factura', numFactura);
+
+  if (error) { toast('Error: ' + error.message, 'd'); return; }
+
+  toast(nuevoEstado === 'Anulada' ? 'Factura anulada ✓' : 'Castigo de cartera registrado ✓', 'ok');
+  closeM();
+  await loadDiaz();
+}
+
+// ── EDITAR / ELIMINAR MOVIMIENTOS ────────────────────────────
+async function editarMov(movId, numContrato) {
+  // Buscar el movimiento
+  const {data: mov, error} = await db.from('movimientos').select('*').eq('id', movId).single();
+  if (error || !mov) { toast('Error al cargar movimiento','d'); return; }
+
+  $('m-t').textContent = 'Editar movimiento';
+  $('m-s').textContent = `Memo ${mov.numero_memo||'N.C'} · ${mov.fecha}`;
+  $('m-b').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Tipo</div>
+        <select id="edit-tipo" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+          <option value="corte_rendimiento" ${mov.tipo==='corte_rendimiento'?'selected':''}>Corte rendimiento</option>
+          <option value="retiro_capital" ${mov.tipo==='retiro_capital'?'selected':''}>Retiro capital</option>
+          <option value="capital_nuevo" ${mov.tipo==='capital_nuevo'?'selected':''}>Capital nuevo</option>
+          <option value="ajuste" ${mov.tipo==='ajuste'?'selected':''}>Ajuste</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Fecha</div>
+        <input id="edit-fecha" type="date" value="${mov.fecha}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Memo #</div>
+        <input id="edit-memo" type="text" value="${mov.numero_memo||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Capital base</div>
+        <input id="edit-capital" type="number" value="${mov.capital_base||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">% Período</div>
+        <input id="edit-pct" type="number" step="0.0001" value="${mov.porcentaje||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">$ Rendimiento</div>
+        <input id="edit-rend" type="number" value="${mov.valor_rendimiento||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">$ Reinversión</div>
+        <input id="edit-reinv" type="number" value="${mov.valor_reinversion||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Saldo resultado</div>
+        <input id="edit-saldo" type="number" value="${mov.saldo_resultado||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:4px">Anotaciones</div>
+      <input id="edit-nota" type="text" value="${mov.anotaciones||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="guardarEdicion('${movId}','${numContrato}')" style="flex:1;background:#00A98D;color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">Guardar cambios</button>
+      <button onclick="openPerfil('${numContrato}')" style="background:var(--sf2);color:var(--t2);border:1px solid var(--br);border-radius:7px;padding:9px 14px;font-size:13px;cursor:pointer">Cancelar</button>
+    </div>
+    <div id="edit-err" style="font-size:11px;color:var(--d);margin-top:6px;min-height:14px"></div>`;
+  $('ov').classList.add('on');
+}
+
+async function guardarEdicion(movId, numContrato) {
+  const tipo  = $('edit-tipo').value;
+  const fecha = $('edit-fecha').value;
+  const memo  = $('edit-memo').value || null;
+  const cap   = parseFloat($('edit-capital').value) || null;
+  const pct   = parseFloat($('edit-pct').value) || null;
+  const rend  = parseFloat($('edit-rend').value) || null;
+  const reinv = parseFloat($('edit-reinv').value) || null;
+  const saldo = parseFloat($('edit-saldo').value) || null;
+  const nota  = $('edit-nota').value || null;
+
+  if (!fecha) { $('edit-err').textContent = 'La fecha es obligatoria'; return; }
+  if (!saldo) { $('edit-err').textContent = 'El saldo resultado es obligatorio'; return; }
+
+  const {error} = await db.from('movimientos').update({
+    tipo, fecha,
+    numero_memo: memo,
+    capital_base: cap,
+    porcentaje: pct,
+    valor_rendimiento: rend,
+    valor_reinversion: reinv,
+    saldo_resultado: saldo,
+    anotaciones: nota
+  }).eq('id', movId);
+
+  if (error) { $('edit-err').textContent = 'Error: ' + error.message; return; }
+
+  // Actualizar saldo del contrato
+  if (saldo) {
+    await db.from('contratos_tycoon').update({saldo_actual: saldo}).eq('numero', numContrato);
+  }
+
+  toast('Movimiento actualizado ✓','ok');
+  closeM();
+  await loadTycoon();
+  setTimeout(() => openPerfil(numContrato), 500);
+}
+
+async function eliminarMov(movId, numContrato) {
+  if (!confirm('¿Seguro que desea eliminar este movimiento? Esta acción no se puede deshacer.')) return;
+
+  const {error} = await db.from('movimientos').delete().eq('id', movId);
+  if (error) { toast('Error al eliminar: ' + error.message, 'd'); return; }
+
+  toast('Movimiento eliminado ✓','ok');
+  closeM();
+  await loadTycoon();
+  setTimeout(() => openPerfil(numContrato), 500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+async function init() {
+  // Check if already logged in
+  const { data: { session } } = await db.auth.getSession();
+  $('loading').classList.add('hide');
+  if(session) {
+    showApp(session.user);
+  } else {
+    $('login-screen').style.display = 'flex';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
