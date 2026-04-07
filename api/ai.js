@@ -1,49 +1,46 @@
 // api/ai.js — Proxy serverless para Anthropic API
-// Vercel Function: recibe consultas del frontend y llama a Claude con contexto financiero
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 module.exports = async function handler(req, res) {
-  // CORS headers — permite llamadas desde el frontend
-  res.setHeader('Access-Control-Allow-Origin', 'https://diaz-intl-app.vercel.app');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método no permitido' });
-  }
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: 'API key no configurada en variables de entorno de Vercel' });
+  if (!apiKey) {
+    return res.status(500).json({ error: 'KEY_MISSING: ANTHROPIC_API_KEY no definida.' });
+  }
+  if (!apiKey.startsWith('sk-ant-')) {
+    return res.status(500).json({ error: 'KEY_INVALID: formato incorrecto.' });
   }
 
   try {
-    const { query, context } = req.body;
+    const { query, context } = req.body || {};
+    if (!query) return res.status(400).json({ error: 'Se requiere query' });
 
-    if (!query) {
-      return res.status(400).json({ error: 'Se requiere el campo query' });
-    }
+    const hoy = new Date().toLocaleDateString('es-CO', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
 
-    const systemPrompt = `Eres un asistente financiero ejecutivo para el Holding Díaz Intl Group. Tienes acceso a datos en tiempo real de tres unidades de negocio. Responde en español, de forma concisa y ejecutiva. Usa formato claro con emojis cuando ayude a la legibilidad. Cifras en USD a menos que se indique. Sé directo y preciso. Hoy es ${new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.
+    const systemPrompt = `Eres un asistente financiero ejecutivo para el Holding Díaz Intl Group. Responde en español, conciso y ejecutivo. Usa emojis cuando ayude. Hoy es ${hoy}.
 
-=== TYCOON - FONDO DE INVERSIONES ===
-${context?.tycoon || 'Sin datos Tycoon disponibles.'}
+=== TYCOON ===
+${context?.tycoon || 'Sin datos.'}
 
-=== DÍAZ INTERNATIONAL - FACTURACIÓN ===
-${context?.diaz || 'Sin datos Díaz disponibles.'}
+=== DÍAZ INTERNATIONAL ===
+${context?.diaz || 'Sin datos.'}
 
-=== KII EXCHANGE - POSICIONES ===
-${context?.kii || 'Sin datos KII disponibles.'}`;
+=== KII EXCHANGE ===
+${context?.kii || 'Sin datos.'}`;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
@@ -54,19 +51,18 @@ ${context?.kii || 'Sin datos KII disponibles.'}`;
       })
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const err = await response.text();
-      console.error('Anthropic API error:', err);
-      return res.status(502).json({ error: 'Error al contactar Anthropic API' });
+      return res.status(502).json({
+        error: `ANTHROPIC_ERROR ${response.status}: ${data.error?.message || JSON.stringify(data.error)}`
+      });
     }
 
-    const data = await response.json();
-    const reply = data.content?.[0]?.text || 'Sin respuesta del modelo.';
-
+    const reply = data.content?.[0]?.text || 'Sin respuesta.';
     return res.status(200).json({ reply });
 
   } catch (error) {
-    console.error('Error en proxy IA:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ error: 'CATCH: ' + error.message });
   }
 };
