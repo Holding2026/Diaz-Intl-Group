@@ -1,4 +1,4 @@
-// api/ai.js — Proxy serverless para Groq API
+// v3// api/ai.js — Proxy serverless para Groq API
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
