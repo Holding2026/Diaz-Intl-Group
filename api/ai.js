@@ -47,9 +47,9 @@ ${context?.kii || 'Sin datos.'}`;
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(502).json({
-        error: `ANTHROPIC_ERROR ${response.status}: ${data.error?.message || JSON.stringify(data.error)}`
+   if (!response.ok) {
+      return res.status(200).json({
+        reply: `ERROR ${response.status}: ${JSON.stringify(data)}`
       });
     }
 
