@@ -3496,7 +3496,7 @@ async function impConfirmar(empresa){
   var btn=document.getElementById('imp-btn-ok');btn.textContent='Importando...';btn.disabled=true;
   var anio=IMP_DATA.anio,mes=IMP_DATA.mes,rows=IMP_DATA.rows;
   await db.from('transacciones').delete().eq('empresa_id',empresa).eq('año',anio).eq('mes',mes).eq('cuenta_id',cuentaId);
-  var inserts=rows.map(function(r){return {empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,año:anio,mes:mes,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1};});
+  var inserts=rows.map(function(r){return {empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,mes:mes,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1};});
   var errs=0;
   for(var i=0;i<inserts.length;i+=50){var res=await db.from('transacciones').insert(inserts.slice(i,i+50));if(res.error){errs++;console.error(res.error);}}
   toast(errs?'Importado con '+errs+' errores':'✓ '+rows.length+' movimientos importados · cuadre verificado','ok');
