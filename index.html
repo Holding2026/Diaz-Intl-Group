@@ -2988,10 +2988,26 @@ async function loadCont(empresa) {
   if(anio>0) q=q.eq('año',anio);
   const {data:trans,error}=await q.order('fecha',{ascending:false});
   if(isTy) CONT_LOADED=true; else CONTDIAZ_LOADED=true;
-  fcRenderDashboard(empresa,trans||[],anio,ac,body);
+
+  // Calcular saldo de apertura si hay filtro de mes y cuenta
+  let saldoApertura = null;
+  const filt = FC_FILT[empresa];
+  if (filt.mes && filt.cuenta && anio > 0) {
+    try {
+      const primerDia = anio + '-' + String(filt.mes).padStart(2,'0') + '-01';
+      const cRes = await db.from('cont_cuentas').select('saldo_inicial,nombre').eq('id', filt.cuenta).single();
+      const saldoBase = parseFloat((cRes.data && cRes.data.saldo_inicial) || 0);
+      const hRes = await db.from('transacciones').select('ingreso,egreso').eq('cuenta_id', filt.cuenta).lt('fecha', primerDia);
+      const hRows = hRes.data || [];
+      const flujo = hRows.reduce(function(a,t){ return a + (parseFloat(t.ingreso)||0) - (parseFloat(t.egreso)||0); }, 0);
+      saldoApertura = Math.round((saldoBase + flujo) * 100) / 100;
+    } catch(e) { console.warn('saldo apertura:', e); }
+  }
+
+  fcRenderDashboard(empresa,trans||[],anio,ac,body,saldoApertura);
 }
 
-function fcRenderDashboard(empresa, trans, anio, ac, body) {
+function fcRenderDashboard(empresa, trans, anio, ac, body, saldoApertura) {
   const cuentas=FC_CUENTAS[empresa];
   const filt=FC_FILT[empresa];
   const CLR_ING='#2ecc71',CLR_EG='#f39c12',CLR_NEG='#e74c3c';
@@ -3037,11 +3053,26 @@ function fcRenderDashboard(empresa, trans, anio, ac, body) {
       <span onclick="fcFilt('${empresa}','tipo','egreso')" style="cursor:pointer;padding:5px 9px;border-radius:7px;font-size:10px;background:${filt.tipo==='egreso'?'rgba(243,156,18,0.1)':'var(--sf2)'};color:${filt.tipo==='egreso'?CLR_EG:'var(--t2)'};border:1px solid ${filt.tipo==='egreso'?CLR_EG:'var(--br)'}">↓ Eg</span>
     </div>
   </div>
+  ${saldoApertura !== null ? `<div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Saldo inicial</div><div style="font-size:16px;font-weight:700;color:var(--t);font-family:'Syne',sans-serif">${fm(saldoApertura)}</div></div>
+      <div style="color:var(--t3);font-size:18px">+</div>
+      <div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Ingresos</div><div style="font-size:16px;font-weight:700;color:#2ecc71;font-family:'Syne',sans-serif">${fm(ing)}</div></div>
+      <div style="color:var(--t3);font-size:18px">−</div>
+      <div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Egresos</div><div style="font-size:16px;font-weight:700;color:#f39c12;font-family:'Syne',sans-serif">${fm(eg)}</div></div>
+      <div style="color:var(--t3);font-size:18px">=</div>
+      <div style="background:${(saldoApertura+net)>=0?'rgba(46,204,113,0.08)':'rgba(231,76,60,0.08)'};border:1px solid ${(saldoApertura+net)>=0?'rgba(46,204,113,0.3)':'rgba(231,76,60,0.3)'};border-radius:8px;padding:8px 14px">
+        <div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Saldo final</div>
+        <div style="font-size:18px;font-weight:800;color:${(saldoApertura+net)>=0?'#2ecc71':'#e74c3c'};font-family:'Syne',sans-serif">${fm(saldoApertura+net)}</div>
+      </div>
+    </div>
+    <div style="font-size:9px;color:var(--t3)">${rows.length} mov · ${mrg.toFixed(1)}% margen</div>
+  </div>` : ''}
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
-    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${CLR_ING}"><div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Ingresos ${anio||'Total'}</div><div style="font-size:20px;font-weight:700;color:${CLR_ING};font-family:'Syne',sans-serif">${fm(ing)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${rows.filter(t=>t.ingreso>0).length} movimientos</div></div>
-    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${CLR_EG}"><div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Egresos ${anio||'Total'}</div><div style="font-size:20px;font-weight:700;color:${CLR_EG};font-family:'Syne',sans-serif">${fm(eg)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${rows.filter(t=>t.egreso>0).length} movimientos</div></div>
-    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${net>=0?CLR_ING:CLR_NEG}"><div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Resultado neto</div><div style="font-size:20px;font-weight:700;color:${net>=0?CLR_ING:CLR_NEG};font-family:'Syne',sans-serif">${fm(net)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${mrg.toFixed(1)}% margen</div></div>
-    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid var(--t3)"><div style="font-size:9px;color:var(--t3);font-family:'DM Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Movimientos</div><div style="font-size:20px;font-weight:700;color:var(--t);font-family:'Syne',sans-serif">${rows.length}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${anio||'Histórico'} · Cash basis</div></div>
+    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${CLR_ING}"><div style="font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Ingresos ${anio||'Total'}</div><div style="font-size:20px;font-weight:700;color:${CLR_ING};font-family:'Syne',sans-serif">${fm(ing)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${rows.filter(t=>t.ingreso>0).length} movimientos</div></div>
+    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${CLR_EG}"><div style="font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Egresos ${anio||'Total'}</div><div style="font-size:20px;font-weight:700;color:${CLR_EG};font-family:'Syne',sans-serif">${fm(eg)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${rows.filter(t=>t.egreso>0).length} movimientos</div></div>
+    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${net>=0?CLR_ING:CLR_NEG}"><div style="font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Resultado neto</div><div style="font-size:20px;font-weight:700;color:${net>=0?CLR_ING:CLR_NEG};font-family:'Syne',sans-serif">${fm(net)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${mrg.toFixed(1)}% margen</div></div>
+    <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid var(--t3)"><div style="font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Movimientos</div><div style="font-size:20px;font-weight:700;color:var(--t);font-family:'Syne',sans-serif">${rows.length}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${anio||'Histórico'} · Cash basis</div></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 185px;gap:12px;margin-bottom:16px">
     <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px">
