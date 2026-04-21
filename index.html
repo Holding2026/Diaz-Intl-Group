@@ -3205,7 +3205,7 @@ async function nmGuardar(empresa){
   if(moneda==='COP'){iUSD=ingreso/tasa;eUSD=egreso/tasa;}
   if(moneda==='EUR'){iUSD=ingreso*tasa;eUSD=egreso*tasa;}
   document.getElementById('nm-err').textContent='Guardando...';
-  const {error}=await db.from('transacciones').insert({empresa_id:empresa,cuenta_id:cuentaId,fecha,año:fObj.getFullYear(),mes:fObj.getMonth()+1,concepto,categoria_codigo:parts[0]||null,categoria_nombre:parts[1]||null,moneda,tasa_cambio:moneda!=='USD'?tasa:1,ingreso:iUSD>0?Math.round(iUSD*100)/100:0,egreso:eUSD>0?Math.round(eUSD*100)/100:0,notas});
+  const {error}=await db.from('transacciones').insert({empresa_id:empresa,cuenta_id:cuentaId,fecha,concepto,categoria_codigo:parts[0]||null,categoria_nombre:parts[1]||null,moneda,tasa_cambio:moneda!=='USD'?tasa:1,ingreso:iUSD>0?Math.round(iUSD*100)/100:0,egreso:eUSD>0?Math.round(eUSD*100)/100:0,notas});
   if(error){document.getElementById('nm-err').textContent='Error: '+error.message;return;}
   toast('Movimiento guardado ✓','ok');closeM();CONT_LOADED=false;CONTDIAZ_LOADED=false;loadCont(empresa);
 }
@@ -3554,7 +3554,7 @@ async function impConfirmar(empresa){
   var btn=document.getElementById('imp-btn-ok');btn.textContent='Importando...';btn.disabled=true;
   var anio=IMP_DATA.anio,mes=IMP_DATA.mes,rows=IMP_DATA.rows;
   await db.from('transacciones').delete().eq('empresa_id',empresa).eq('año',anio).eq('mes',mes).eq('cuenta_id',cuentaId);
-  var inserts=rows.map(function(r){return {empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,año:anio,mes:mes,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1};});
+  var inserts=rows.map(function(r){return {empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1};});
   var errs=0;
   for(var i=0;i<inserts.length;i+=50){var res=await db.from('transacciones').insert(inserts.slice(i,i+50));if(res.error){errs++;console.error(res.error);}}
   toast(errs?'Importado con '+errs+' errores':'✓ '+rows.length+' movimientos importados · cuadre verificado','ok');
