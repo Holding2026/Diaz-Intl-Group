@@ -3327,7 +3327,7 @@ async function impProcesarArchivo(file,empresa){
   }else{document.getElementById('imp-preview').innerHTML='<div style="color:var(--d);padding:16px;text-align:center">Solo se aceptan PDF o TXT del banco</div>';}
 }
 
-function impParsearTexto(text,empresa){
+async function impParsearTexto(text,empresa){
   var parsed = parseBofAPDF(text);
   var pe = document.getElementById('imp-periodo');
   if (pe) pe.value = parsed.periodoStr || (parsed.mes + '/' + parsed.anio);
@@ -3335,7 +3335,41 @@ function impParsearTexto(text,empresa){
     document.getElementById('imp-preview').innerHTML = '<div style="background:var(--dd);border:1px solid var(--d);border-radius:8px;padding:16px;font-size:12px;color:var(--d)">No se encontraron transacciones. Verifica que sea un extracto BofA Business Advantage.</div>';
     return;
   }
-  IMP_DATA = {empresa:empresa, rows:parsed.rows, anio:parsed.anio, mes:parsed.mes, summary:parsed.summary, calculated:parsed.calculated, cuadre:parsed.cuadre, unparsedLines:parsed.unparsedLines};
+
+  // ── Calcular saldo historico desde BD ──────────────────────
+  var continuidad = null;
+  var cuentaId = document.getElementById('imp-cuenta') && document.getElementById('imp-cuenta').value;
+  if (cuentaId && parsed.summary.beginning_balance !== null) {
+    try {
+      // Saldo inicial de la cuenta
+      var cuentaRes = await db.from('cont_cuentas').select('saldo_inicial').eq('id', cuentaId).single();
+      var saldoBase = (cuentaRes.data && cuentaRes.data.saldo_inicial) ? parseFloat(cuentaRes.data.saldo_inicial) : 0;
+
+      // Primer dia del mes que se esta importando
+      var primerDia = parsed.anio + '-' + String(parsed.mes).padStart(2,'0') + '-01';
+
+      // Todos los movimientos de esa cuenta ANTES de este mes
+      var histRes = await db.from('transacciones').select('ingreso,egreso').eq('cuenta_id', cuentaId).lt('fecha', primerDia);
+      var histRows = (histRes.data) || [];
+      var flujoHistorico = histRows.reduce(function(a,t){ return a + (parseFloat(t.ingreso)||0) - (parseFloat(t.egreso)||0); }, 0);
+
+      var saldoCalculadoBD = Math.round((saldoBase + flujoHistorico) * 100) / 100;
+      var saldoPDF = parsed.summary.beginning_balance;
+      var diff = Math.round((saldoCalculadoBD - saldoPDF) * 100) / 100;
+
+      continuidad = {
+        saldo_bd: saldoCalculadoBD,
+        saldo_pdf: saldoPDF,
+        diferencia: diff,
+        ok: Math.abs(diff) < 0.02,
+        es_primer_mes: histRows.length === 0
+      };
+    } catch(e) {
+      console.warn('No se pudo calcular saldo historico:', e);
+    }
+  }
+
+  IMP_DATA = {empresa:empresa, rows:parsed.rows, anio:parsed.anio, mes:parsed.mes, summary:parsed.summary, calculated:parsed.calculated, cuadre:parsed.cuadre, unparsedLines:parsed.unparsedLines, continuidad:continuidad};
   impMostrarPreview(IMP_DATA);
 }
 
@@ -3372,8 +3406,8 @@ function impMostrarPreview(data) {
     var bg = isEnding ? 'background:rgba(0,0,0,0.15);font-weight:700;' : '';
     return '<tr style="border-bottom:1px solid var(--br);' + bg + '">' +
       '<td style="padding:7px 10px;font-size:11px;color:var(--t2)">' + label + '</td>' +
-      '<td style="padding:7px 10px;font-size:11px;text-align:right;font-family:\'DM Mono\',monospace;color:var(--t2)">' + fmv(pdfVal) + '</td>' +
-      '<td style="padding:7px 10px;font-size:11px;text-align:right;font-family:\'DM Mono\',monospace;color:' + (isEnding ? ac : 'var(--t)') + '">' + fmv(calcVal) + '</td>' +
+      '<td style="padding:7px 10px;font-size:11px;text-align:right;color:var(--t2)">' + fmv(pdfVal) + '</td>' +
+      '<td style="padding:7px 10px;font-size:11px;text-align:right;color:' + (isEnding ? ac : 'var(--t)') + '">' + fmv(calcVal) + '</td>' +
       '<td style="padding:7px 10px;font-size:12px;text-align:center;color:' + iconColor + ';font-weight:700">' + icon + '</td>' +
       '</tr>';
   }
@@ -3395,6 +3429,29 @@ function impMostrarPreview(data) {
       (diffAmt ? '<strong>Diferencia: ' + diffAmt + '</strong> — ' : '') + diffReason + '</div>';
   }
 
+  // ── Fila de continuidad mes a mes ──
+  var continuidadFila = '';
+  if (data.continuidad) {
+    var cont = data.continuidad;
+    if (cont.es_primer_mes) {
+      continuidadFila = '<tr style="border-bottom:1px solid var(--br);background:rgba(0,0,0,0.08)">' +
+        '<td style="padding:7px 10px;font-size:11px;color:var(--t3);font-style:italic" colspan="4">Primer mes registrado para esta cuenta — saldo inicial tomado de la cuenta</td>' +
+        '</tr>';
+    } else {
+      var contIcon = cont.ok ? '✓' : '⚠';
+      var contColor = cont.ok ? '#2ecc71' : '#e67e22';
+      continuidadFila = '<tr style="border-bottom:1px solid var(--br);background:rgba(0,0,0,0.08)">' +
+        '<td style="padding:7px 10px;font-size:11px;color:var(--t2)">Saldo mes anterior (BD)</td>' +
+        '<td style="padding:7px 10px;font-size:11px;text-align:right;color:var(--t2)">' + fmv(cont.saldo_pdf) + '</td>' +
+        '<td style="padding:7px 10px;font-size:11px;text-align:right;color:' + contColor + '">' + fmv(cont.saldo_bd) + '</td>' +
+        '<td style="padding:7px 10px;font-size:12px;text-align:center;color:' + contColor + ';font-weight:700">' + contIcon + '</td>' +
+        '</tr>' +
+        (!cont.ok ? '<tr style="background:rgba(230,126,34,0.06)">' +
+          '<td colspan="4" style="padding:6px 10px;font-size:10px;color:#e67e22">⚠ Diferencia de ' + fmv(Math.abs(cont.diferencia)) + ' entre el saldo que calcula la BD y lo que dice el PDF. Revisa si hay movimientos faltantes en el mes anterior.</td>' +
+          '</tr>' : '');
+    }
+  }
+
   var cuadreHTML = '<div style="background:' + cuadreColor + ';border:1px solid ' + cuadreBorder + ';border-radius:10px;padding:14px;margin-bottom:14px">' +
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
     '<div style="font-size:20px;line-height:1">' + cuadreIcon + '</div>' +
@@ -3404,16 +3461,17 @@ function impMostrarPreview(data) {
     '</div></div>' +
     '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
     '<thead><tr style="border-bottom:1px solid var(--br)">' +
-    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:left;font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:1px">Concepto</th>' +
-    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:right;font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:1px">PDF dice</th>' +
-    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:right;font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:1px">Detectado</th>' +
-    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:center;font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:1px">OK</th>' +
+    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:left;text-transform:uppercase;letter-spacing:1px">Concepto</th>' +
+    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:right;text-transform:uppercase;letter-spacing:1px">PDF dice</th>' +
+    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:right;text-transform:uppercase;letter-spacing:1px">Detectado</th>' +
+    '<th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:center;text-transform:uppercase;letter-spacing:1px">OK</th>' +
     '</tr></thead><tbody>' +
     cmpRow('Saldo inicial', summary.beginning_balance, summary.beginning_balance, false) +
     cmpRow('Depósitos', summary.deposits_total, calculated.deposits_imported, false) +
     cmpRow('Retiros', summary.withdrawals_total, calculated.withdrawals_imported, false) +
     cmpRow('Service fees', summary.service_fees_total, calculated.fees_imported, false) +
     cmpRow('Saldo final', summary.ending_balance, cuadre ? cuadre.calculated : null, true) +
+    continuidadFila +
     '</tbody></table>' +
     diffBlock + '</div>';
 
@@ -3425,7 +3483,7 @@ function impMostrarPreview(data) {
     }).join('');
     unparsedHTML = '<details style="background:var(--sf2);border:1px solid var(--br);border-radius:8px;padding:10px 14px;margin-bottom:14px">' +
       '<summary style="cursor:pointer;font-size:11px;color:var(--w);font-weight:600">⚠ ' + unparsedLines.length + ' línea(s) no procesada(s) · clic para ver</summary>' +
-      '<div style="margin-top:10px;max-height:180px;overflow-y:auto;font-family:\'DM Mono\',monospace;font-size:9.5px;color:var(--t3);line-height:1.7">' +
+      '<div style="margin-top:10px;max-height:180px;overflow-y:auto;font-family:monospace;font-size:9.5px;color:var(--t3);line-height:1.7">' +
       unparsedItems + '</div></details>';
   }
 
@@ -3443,16 +3501,16 @@ function impMostrarPreview(data) {
     var catOptions = '<option value="">— sin cat —</option>' +
       FC_CATS.map(function(c){ return '<option value="' + c.nombre + '"' + (r.categoria === c.nombre ? ' selected' : '') + '>' + c.nombre + '</option>'; }).join('');
     return '<tr style="border-top:1px solid var(--br);' + bgRow + '">' +
-      '<td style="padding:5px 8px;color:var(--t3);font-family:\'DM Mono\',monospace;white-space:nowrap">' + fd(r.fecha) + '</td>' +
+      '<td style="padding:5px 8px;color:var(--t3);font-family:monospace;white-space:nowrap">' + fd(r.fecha) + '</td>' +
       '<td style="padding:5px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + r.concepto.replace(/"/g,'&quot;') + '">' + r.concepto + '</td>' +
-      '<td style="padding:5px 8px"><span style="font-size:8.5px;color:' + secColor + ';background:' + secColor + '22;border-radius:3px;padding:1px 5px;font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:0.5px">' + secLabel + '</span></td>' +
+      '<td style="padding:5px 8px"><span style="font-size:8.5px;color:' + secColor + ';background:' + secColor + '22;border-radius:3px;padding:1px 5px;font-family:monospace;text-transform:uppercase;letter-spacing:0.5px">' + secLabel + '</span></td>' +
       '<td style="padding:5px 8px"><select onchange="impCambiarCat(' + i + ',this.value)" style="width:100%;background:var(--sf2);border:1px solid ' + (!r.categoria ? 'rgba(243,156,18,0.5)' : 'var(--br)') + ';border-radius:4px;padding:2px 4px;font-size:9px;color:var(--t);outline:none">' + catOptions + '</select></td>' +
-      '<td style="padding:5px 8px;text-align:right;font-family:\'DM Mono\',monospace;color:' + CLR_ING + ';font-weight:' + (r.ingreso > 0 ? 600 : 400) + '">' + (r.ingreso > 0 ? fm(r.ingreso) : '—') + '</td>' +
-      '<td style="padding:5px 8px;text-align:right;font-family:\'DM Mono\',monospace;color:' + CLR_EG + ';font-weight:' + (r.egreso > 0 ? 600 : 400) + '">' + (r.egreso > 0 ? fm(r.egreso) : '—') + '</td>' +
+      '<td style="padding:5px 8px;text-align:right;font-family:monospace;color:' + CLR_ING + ';font-weight:' + (r.ingreso > 0 ? 600 : 400) + '">' + (r.ingreso > 0 ? fm(r.ingreso) : '—') + '</td>' +
+      '<td style="padding:5px 8px;text-align:right;font-family:monospace;color:' + CLR_EG + ';font-weight:' + (r.egreso > 0 ? 600 : 400) + '">' + (r.egreso > 0 ? fm(r.egreso) : '—') + '</td>' +
       '</tr>';
   }).join('');
 
-  var tablaHTML = '<div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-family:\'DM Mono\',monospace;letter-spacing:1px;text-transform:uppercase">Movimientos detectados</div>' +
+  var tablaHTML = '<div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-family:monospace;letter-spacing:1px;text-transform:uppercase">Movimientos detectados</div>' +
     '<div style="max-height:340px;overflow-y:auto;border:1px solid var(--br);border-radius:8px">' +
     '<table style="width:100%;font-size:10px;border-collapse:collapse">' +
     '<thead style="position:sticky;top:0;background:var(--sf2);z-index:1"><tr>' +
@@ -3496,7 +3554,7 @@ async function impConfirmar(empresa){
   var btn=document.getElementById('imp-btn-ok');btn.textContent='Importando...';btn.disabled=true;
   var anio=IMP_DATA.anio,mes=IMP_DATA.mes,rows=IMP_DATA.rows;
   await db.from('transacciones').delete().eq('empresa_id',empresa).eq('año',anio).eq('mes',mes).eq('cuenta_id',cuentaId);
-  var inserts=rows.map(function(r){return {empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1};});
+  var inserts=rows.map(function(r){return {empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,año:anio,mes:mes,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1};});
   var errs=0;
   for(var i=0;i<inserts.length;i+=50){var res=await db.from('transacciones').insert(inserts.slice(i,i+50));if(res.error){errs++;console.error(res.error);}}
   toast(errs?'Importado con '+errs+' errores':'✓ '+rows.length+' movimientos importados · cuadre verificado','ok');
@@ -3945,7 +4003,7 @@ function renderMD(text) {
         var html = '<div style="overflow-x:auto;margin:10px 0"><table style="width:100%;border-collapse:collapse;font-size:11px;border:1px solid var(--br);border-radius:6px;overflow:hidden">';
         html += '<thead><tr style="background:rgba(0,0,0,0.25);border-bottom:2px solid var(--ac)">';
         headerCells.forEach(function(cell) {
-          html += '<th style="padding:8px 11px;text-align:left;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ac);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">' + cell.trim() + '</th>';
+          html += '<th style="padding:8px 11px;text-align:left;font-family:monospace;font-size:9px;color:var(--ac);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">' + cell.trim() + '</th>';
         });
         html += '</tr></thead><tbody>';
         dataRows.forEach(function(row, idx) {
@@ -3970,13 +4028,13 @@ function renderMD(text) {
 
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^### (.+)$/gm, '<div style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px">$1</div>')
+    .replace(/^### (.+)$/gm, '<div style="font-size:11px;font-family:monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px">$1</div>')
     .replace(/^## (.+)$/gm, '<div style="font-size:13px;font-weight:700;color:var(--ac);margin:12px 0 5px;border-bottom:1px solid var(--br);padding-bottom:4px">$1</div>')
     .replace(/^# (.+)$/gm, '<div style="font-size:15px;font-weight:800;font-family:\'Syne\',sans-serif;color:var(--t);margin:12px 0 6px">$1</div>')
     .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--br);margin:10px 0">')
     .replace(/^\* (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--ac);flex-shrink:0">•</span><span>$1</span></div>')
     .replace(/^- (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--ac);flex-shrink:0">•</span><span>$1</span></div>')
-    .replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--ac);flex-shrink:0;font-family:\'DM Mono\',monospace;font-size:10px">$1.</span><span>$2</span></div>')
+    .replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--ac);flex-shrink:0;font-family:monospace;font-size:10px">$1.</span><span>$2</span></div>')
     .replace(/\n\n/g, '<div style="margin-top:8px"></div>')
     .replace(/\n/g, '<br>');
 }
