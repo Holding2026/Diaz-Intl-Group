@@ -3041,6 +3041,30 @@ function fcRenderDashboard(empresa, trans, anio, ac, body, saldoApertura) {
   const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const mesOpts=MESES.map((m,i)=>`<option value="${i+1}" ${filt.mes===(i+1)?'selected':''}>${m}</option>`).join('');
 
+  // Pre-calcular HTML de saldo (evita template literal anidado)
+  var saldoBarraHTML = '';
+  if (saldoApertura !== null) {
+    var saldoFinal = saldoApertura + net;
+    var sfColor = saldoFinal >= 0 ? '#2ecc71' : '#e74c3c';
+    var sfBg = saldoFinal >= 0 ? 'rgba(46,204,113,0.08)' : 'rgba(231,76,60,0.08)';
+    var sfBorder = saldoFinal >= 0 ? 'rgba(46,204,113,0.3)' : 'rgba(231,76,60,0.3)';
+    saldoBarraHTML = '<div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' +
+        '<div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Saldo inicial</div><div style="font-size:16px;font-weight:700;color:var(--t);font-family:Syne,sans-serif">' + fm(saldoApertura) + '</div></div>' +
+        '<div style="color:var(--t3);font-size:16px;font-weight:300">+</div>' +
+        '<div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Ingresos</div><div style="font-size:16px;font-weight:700;color:#2ecc71;font-family:Syne,sans-serif">' + fm(ing) + '</div></div>' +
+        '<div style="color:var(--t3);font-size:16px;font-weight:300">&#8722;</div>' +
+        '<div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Egresos</div><div style="font-size:16px;font-weight:700;color:#f39c12;font-family:Syne,sans-serif">' + fm(eg) + '</div></div>' +
+        '<div style="color:var(--t3);font-size:16px;font-weight:300">=</div>' +
+        '<div style="background:' + sfBg + ';border:1px solid ' + sfBorder + ';border-radius:8px;padding:8px 14px">' +
+          '<div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Saldo final</div>' +
+          '<div style="font-size:18px;font-weight:800;color:' + sfColor + ';font-family:Syne,sans-serif">' + fm(saldoFinal) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:9px;color:var(--t3)">' + rows.length + ' mov &middot; ' + mrg.toFixed(1) + '% margen</div>' +
+    '</div>';
+  }
+
   body.innerHTML=`
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
     <span onclick="fcFilt('${empresa}','cuenta',null)" style="cursor:pointer;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;background:${!filt.cuenta?ac:'var(--sf2)'};color:${!filt.cuenta?'#fff':'var(--t2)'};border:1px solid ${!filt.cuenta?ac:'var(--br)'}">Todas</span>
@@ -3053,21 +3077,7 @@ function fcRenderDashboard(empresa, trans, anio, ac, body, saldoApertura) {
       <span onclick="fcFilt('${empresa}','tipo','egreso')" style="cursor:pointer;padding:5px 9px;border-radius:7px;font-size:10px;background:${filt.tipo==='egreso'?'rgba(243,156,18,0.1)':'var(--sf2)'};color:${filt.tipo==='egreso'?CLR_EG:'var(--t2)'};border:1px solid ${filt.tipo==='egreso'?CLR_EG:'var(--br)'}">↓ Eg</span>
     </div>
   </div>
-  ${saldoApertura !== null ? `<div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
-      <div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Saldo inicial</div><div style="font-size:16px;font-weight:700;color:var(--t);font-family:'Syne',sans-serif">${fm(saldoApertura)}</div></div>
-      <div style="color:var(--t3);font-size:18px">+</div>
-      <div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Ingresos</div><div style="font-size:16px;font-weight:700;color:#2ecc71;font-family:'Syne',sans-serif">${fm(ing)}</div></div>
-      <div style="color:var(--t3);font-size:18px">−</div>
-      <div><div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Egresos</div><div style="font-size:16px;font-weight:700;color:#f39c12;font-family:'Syne',sans-serif">${fm(eg)}</div></div>
-      <div style="color:var(--t3);font-size:18px">=</div>
-      <div style="background:${(saldoApertura+net)>=0?'rgba(46,204,113,0.08)':'rgba(231,76,60,0.08)'};border:1px solid ${(saldoApertura+net)>=0?'rgba(46,204,113,0.3)':'rgba(231,76,60,0.3)'};border-radius:8px;padding:8px 14px">
-        <div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Saldo final</div>
-        <div style="font-size:18px;font-weight:800;color:${(saldoApertura+net)>=0?'#2ecc71':'#e74c3c'};font-family:'Syne',sans-serif">${fm(saldoApertura+net)}</div>
-      </div>
-    </div>
-    <div style="font-size:9px;color:var(--t3)">${rows.length} mov · ${mrg.toFixed(1)}% margen</div>
-  </div>` : ''}
+  ${saldoBarraHTML}
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
     <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${CLR_ING}"><div style="font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Ingresos ${anio||'Total'}</div><div style="font-size:20px;font-weight:700;color:${CLR_ING};font-family:'Syne',sans-serif">${fm(ing)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${rows.filter(t=>t.ingreso>0).length} movimientos</div></div>
     <div style="background:var(--sf);border:1px solid var(--br);border-radius:10px;padding:14px 16px;border-top:3px solid ${CLR_EG}"><div style="font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Egresos ${anio||'Total'}</div><div style="font-size:20px;font-weight:700;color:${CLR_EG};font-family:'Syne',sans-serif">${fm(eg)}</div><div style="font-size:10px;color:var(--t3);margin-top:3px">${rows.filter(t=>t.egreso>0).length} movimientos</div></div>
