@@ -3561,28 +3561,200 @@ function impMostrarPreview(rows,anio,mes,empresa){
         </tr>`).join('')}
       </tbody>
     </table></div>`;
-  document.getElementById('imp-actions').style.display='block';
-  document.getElementById('imp-count').textContent=`${rows.length} transacciones`;
+ function impMostrarPreview(data) {
+  const { rows, anio, mes, empresa, summary, calculated, cuadre, unparsedLines } = data;
+  const ac = empresa === 'tycoon' ? '#D22630' : '#00D5B0';
+  const CLR_ING = '#2ecc71', CLR_EG = '#f39c12';
+  const CLR_OK = '#2ecc71', CLR_ERR = '#e74c3c';
+
+  const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  const sinCat = rows.filter(r => !r.categoria).length;
+  const matches = cuadre && cuadre.matches;
+
+  // Helper para filas de la tabla de cuadre
+  const cmpRow = (label, pdfVal, calcVal, isEnding = false) => {
+    const has = pdfVal !== null && calcVal !== null;
+    const diff = has ? Math.abs(pdfVal - calcVal) : null;
+    const ok = has && diff < 0.01;
+    const icon = !has ? '—' : ok ? '✓' : '✕';
+    const iconColor = !has ? 'var(--t3)' : ok ? CLR_OK : CLR_ERR;
+    const bg = isEnding ? 'background:rgba(0,0,0,0.15);font-weight:700' : '';
+    return `
+      <tr style="border-bottom:1px solid var(--br);${bg}">
+        <td style="padding:7px 10px;font-size:11px;color:var(--t2)">${label}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;color:var(--t2)">${pdfVal !== null ? fm(pdfVal) : '—'}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;color:${isEnding ? ac : 'var(--t)'}">${calcVal !== null ? fm(calcVal) : '—'}</td>
+        <td style="padding:7px 10px;font-size:12px;text-align:center;color:${iconColor};font-weight:700">${icon}</td>
+      </tr>`;
+  };
+
+  document.getElementById('imp-preview').innerHTML = `
+    <!-- ══ Bloque de validación de cuadre ══ -->
+    <div style="background:${matches ? 'rgba(46,204,113,0.05)' : 'rgba(231,76,60,0.05)'};border:1px solid ${matches ? 'rgba(46,204,113,0.35)' : 'rgba(231,76,60,0.4)'};border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="font-size:20px;line-height:1">${matches ? '✓' : '⚠'}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:${matches ? CLR_OK : CLR_ERR}">
+            ${matches ? 'Cuadre verificado — importación habilitada' : 'El PDF no cuadra — importación bloqueada'}
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">
+            ${MESES[mes] || mes} ${anio} · ${rows.length} movimientos detectados
+            ${unparsedLines && unparsedLines.length ? ` · ${unparsedLines.length} línea${unparsedLines.length > 1 ? 's' : ''} sin procesar` : ''}
+          </div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--br)">
+            <th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:left;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px">Concepto</th>
+            <th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:right;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px">PDF dice</th>
+            <th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:right;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px">Detectado</th>
+            <th style="padding:6px 10px;font-size:9px;color:var(--t3);text-align:center;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px">OK</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cmpRow('Saldo inicial', summary.beginning_balance, summary.beginning_balance)}
+          ${cmpRow('Depósitos', summary.deposits_total, calculated.deposits_imported)}
+          ${cmpRow('Retiros', summary.withdrawals_total, calculated.withdrawals_imported)}
+          ${cmpRow('Service fees', summary.service_fees_total, calculated.fees_imported)}
+          ${cmpRow('Saldo final', summary.ending_balance, cuadre ? cuadre.calculated : null, true)}
+        </tbody>
+      </table>
+      ${cuadre && !matches ? `
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,0.08);border-radius:6px;font-size:11px;color:${CLR_ERR}">
+          <strong>Diferencia: ${fm(Math.abs(cuadre.difference || 0))}</strong>
+          ${cuadre.reason ? ` — ${cuadre.reason}` : ' — Revisa las líneas no procesadas abajo para identificar qué falta.'}
+        </div>` : ''}
+    </div>
+
+    <!-- ══ Líneas no procesadas (colapsable) ══ -->
+    ${unparsedLines && unparsedLines.length ? `
+      <details style="background:var(--sf2);border:1px solid var(--br);border-radius:8px;padding:10px 14px;margin-bottom:14px">
+        <summary style="cursor:pointer;font-size:11px;color:var(--w);font-weight:600">
+          ⚠ ${unparsedLines.length} línea${unparsedLines.length > 1 ? 's' : ''} no procesada${unparsedLines.length > 1 ? 's' : ''} · clic para ver
+        </summary>
+        <div style="margin-top:10px;max-height:180px;overflow-y:auto;font-family:'DM Mono',monospace;font-size:9.5px;color:var(--t3);line-height:1.7">
+          ${unparsedLines.map(l => `<div style="padding:3px 0;border-bottom:1px dashed var(--br)">${l.replace(/</g, '&lt;')}</div>`).join('')}
+        </div>
+      </details>` : ''}
+
+    ${sinCat > 0 ? `<div style="background:rgba(243,156,18,0.1);border:1px solid rgba(243,156,18,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--w)">⚠ ${sinCat} movimientos sin categoría. Puedes asignarlas antes o después de importar.</div>` : ''}
+
+    <!-- ══ Tabla de movimientos ══ -->
+    <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-family:'DM Mono',monospace;letter-spacing:1px;text-transform:uppercase">Movimientos detectados</div>
+    <div style="max-height:340px;overflow-y:auto;border:1px solid var(--br);border-radius:8px">
+      <table style="width:100%;font-size:10px;border-collapse:collapse">
+        <thead style="position:sticky;top:0;background:var(--sf2);z-index:1"><tr>
+          <th style="text-align:left;color:var(--t3);font-weight:500;padding:6px 8px;font-size:9px;white-space:nowrap">Fecha</th>
+          <th style="text-align:left;color:var(--t3);font-weight:500;padding:6px 8px;font-size:9px">Concepto</th>
+          <th style="text-align:left;color:var(--t3);font-weight:500;padding:6px 8px;font-size:9px">Tipo</th>
+          <th style="text-align:left;color:var(--t3);font-weight:500;padding:6px 8px;font-size:9px;min-width:140px">Categoría</th>
+          <th style="text-align:right;color:var(--t3);font-weight:500;padding:6px 8px;font-size:9px">Ingreso</th>
+          <th style="text-align:right;color:var(--t3);font-weight:500;padding:6px 8px;font-size:9px">Egreso</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((r, i) => {
+            const secLabel = r.seccion === 'deposits' ? 'Depósito'
+              : r.seccion === 'withdrawals' ? 'Retiro'
+              : r.seccion === 'fees' ? 'Fee' : '?';
+            const secColor = r.seccion === 'deposits' ? CLR_ING
+              : r.seccion === 'fees' ? '#C7A9F8'
+              : CLR_EG;
+            return `<tr style="border-top:1px solid var(--br);background:${!r.categoria ? 'rgba(243,156,18,0.04)' : ''}">
+              <td style="padding:5px 8px;color:var(--t3);font-family:'DM Mono',monospace;white-space:nowrap">${fd(r.fecha)}</td>
+              <td style="padding:5px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.concepto.replace(/"/g, '&quot;')}">${r.concepto}</td>
+              <td style="padding:5px 8px"><span style="font-size:8.5px;color:${secColor};background:${secColor}22;border-radius:3px;padding:1px 5px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.5px">${secLabel}</span></td>
+              <td style="padding:5px 8px"><select onchange="impCambiarCat(${i},this.value)" style="width:100%;background:var(--sf2);border:1px solid ${!r.categoria ? 'rgba(243,156,18,0.5)' : 'var(--br)'};border-radius:4px;padding:2px 4px;font-size:9px;color:var(--t);outline:none">
+                <option value="">— sin cat —</option>
+                ${FC_CATS.map(c => `<option value="${c.nombre}" ${r.categoria === c.nombre ? 'selected' : ''}>${c.nombre}</option>`).join('')}
+              </select></td>
+              <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;color:${CLR_ING};font-weight:${r.ingreso > 0 ? 600 : 400}">${r.ingreso > 0 ? fm(r.ingreso) : '—'}</td>
+              <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;color:${CLR_EG};font-weight:${r.egreso > 0 ? 600 : 400}">${r.egreso > 0 ? fm(r.egreso) : '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  // Mostrar acciones y controlar botón de confirmación
+  document.getElementById('imp-actions').style.display = 'block';
+  const btn = document.getElementById('imp-btn-ok');
+  if (matches) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.textContent = `✓ Confirmar e importar (${rows.length})`;
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.style.cursor = 'not-allowed';
+    btn.textContent = '🔒 No se puede importar · PDF no cuadra';
+  }
+  document.getElementById('imp-count').textContent = `${rows.length} transacciones`;
 }
+
 
 function impCambiarCat(idx,cat){if(IMP_DATA&&IMP_DATA.rows[idx])IMP_DATA.rows[idx].categoria=cat;}
 function impLimpiar(){IMP_DATA=null;document.getElementById('imp-preview').innerHTML='';document.getElementById('imp-actions').style.display='none';document.getElementById('imp-periodo').value='';}
 
-async function impConfirmar(empresa){
-  if(!IMP_DATA||!IMP_DATA.rows.length)return;
-  const cuentaId=document.getElementById('imp-cuenta')?.value;
-  if(!cuentaId){toast('Selecciona la cuenta bancaria','d');return;}
-  const btn=document.getElementById('imp-btn-ok');btn.textContent='Importando...';btn.disabled=true;
-  const {anio,mes,rows}=IMP_DATA;
-  // Clean slate
-  await db.from('transacciones').delete().eq('empresa_id',empresa).eq('año',anio).eq('mes',mes).eq('cuenta_id',cuentaId);
-  const inserts=rows.map(r=>({empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,año:anio,mes,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1}));
-  let errs=0;
-  for(let i=0;i<inserts.length;i+=50){const {error}=await db.from('transacciones').insert(inserts.slice(i,i+50));if(error){errs++;console.error(error);}}
-  toast(errs?`Importado con ${errs} errores`:`✓ ${rows.length} movimientos importados`,'ok');
+async function impConfirmar(empresa) {
+  if (!IMP_DATA || !IMP_DATA.rows.length) return;
+
+  // Guardia dura: nunca importar si no cuadra (decisión del admin)
+  if (!IMP_DATA.cuadre || !IMP_DATA.cuadre.matches) {
+    toast('El PDF no cuadra. Importación bloqueada hasta que se resuelva la diferencia.', 'd');
+    return;
+  }
+
+  const cuentaId = document.getElementById('imp-cuenta')?.value;
+  if (!cuentaId) { toast('Selecciona la cuenta bancaria', 'd'); return; }
+
+  const btn = document.getElementById('imp-btn-ok');
+  btn.textContent = 'Importando...'; btn.disabled = true;
+
+  const { anio, mes, rows } = IMP_DATA;
+
+  // Clean slate: borrar lo previamente importado para este (empresa, año, mes, cuenta)
+  await db.from('transacciones')
+    .delete()
+    .eq('empresa_id', empresa)
+    .eq('año', anio)
+    .eq('mes', mes)
+    .eq('cuenta_id', cuentaId);
+
+  const inserts = rows.map(r => ({
+    empresa_id: empresa,
+    cuenta_id: cuentaId,
+    fecha: r.fecha,
+    año: anio,
+    mes,
+    concepto: r.concepto,
+    categoria_nombre: r.categoria || null,
+    ingreso: r.ingreso || 0,
+    egreso: r.egreso || 0,
+    moneda: 'USD',
+    tasa_cambio: 1
+  }));
+
+  let errs = 0;
+  for (let i = 0; i < inserts.length; i += 50) {
+    const { error } = await db.from('transacciones').insert(inserts.slice(i, i + 50));
+    if (error) { errs++; console.error(error); }
+  }
+
+  toast(errs
+    ? `Importado con ${errs} errores`
+    : `✓ ${rows.length} movimientos importados · cuadre verificado`, 'ok');
+
   cerrarImportar();
-  const anioEl=empresa==='tycoon'?$('cont-año'):$('contdiaz-año');if(anioEl)anioEl.value=String(anio);
-  FC_FILT[empresa].mes=mes;CONT_LOADED=false;CONTDIAZ_LOADED=false;loadCont(empresa);
+  const anioEl = empresa === 'tycoon' ? $('cont-año') : $('contdiaz-año');
+  if (anioEl) anioEl.value = String(anio);
+  FC_FILT[empresa].mes = mes;
+  CONT_LOADED = false;
+  CONTDIAZ_LOADED = false;
+  loadCont(empresa);
 }
 
 // ── DASHBOARD CONTABLE (visible admin + equipo) ───────────────
