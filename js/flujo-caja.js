@@ -427,7 +427,7 @@ async function nmGuardar(empresa){
   if(moneda==='COP'){iUSD=ingreso/tasa;eUSD=egreso/tasa;}
   if(moneda==='EUR'){iUSD=ingreso*tasa;eUSD=egreso*tasa;}
   document.getElementById('nm-err').textContent='Guardando...';
-  const {error}=await db.from('transacciones').insert({empresa_id:empresa,cuenta_id:cuentaId,fecha,año:fObj.getFullYear(),mes:fObj.getMonth()+1,concepto,categoria_codigo:parts[0]||null,categoria_nombre:parts[1]||null,moneda,tasa_cambio:moneda!=='USD'?tasa:1,ingreso:iUSD>0?Math.round(iUSD*100)/100:0,egreso:eUSD>0?Math.round(eUSD*100)/100:0,notas});
+  const {error}=await db.from('transacciones').insert({empresa_id:empresa,cuenta_id:cuentaId,fecha,concepto,categoria_codigo:parts[0]||null,categoria_nombre:parts[1]||null,moneda,tasa_cambio:moneda!=='USD'?tasa:1,ingreso:iUSD>0?Math.round(iUSD*100)/100:0,egreso:eUSD>0?Math.round(eUSD*100)/100:0,notas});
   if(error){document.getElementById('nm-err').textContent='Error: '+error.message;return;}
   toast('Movimiento guardado ✓','ok');closeM();CONT_LOADED=false;CONTDIAZ_LOADED=false;loadCont(empresa);
 }
@@ -618,13 +618,10 @@ async function impConfirmar(empresa){
     .eq('empresa_id',empresa).eq('cuenta_id',cuentaId)
     .gte('fecha',fechaMin).lte('fecha',fechaMax);
 
-  // Insert with fecha as source of truth (keep año/mes for backward compat but derive from fecha)
+  // Insert: año and mes are GENERATED columns (derived from fecha automatically)
   const inserts=rows.map(r=>{
-    const fDate = r.fecha ? new Date(r.fecha+'T12:00:00') : null;
     return {
       empresa_id:empresa, cuenta_id:cuentaId, fecha:r.fecha,
-      año: fDate ? fDate.getFullYear() : anio,
-      mes: fDate ? fDate.getMonth()+1 : mes,
       concepto:r.concepto, categoria_nombre:r.categoria||null,
       ingreso:r.ingreso||0, egreso:r.egreso||0, moneda:'USD', tasa_cambio:1
     };
