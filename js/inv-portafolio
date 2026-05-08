@@ -449,18 +449,4 @@ async function eliminarAdjuntoContrato(numero, idx) {
   editarContrato(numero);
 }
 
-// ── INIT ──────────────────────────────────────────────────────
-async function init() {
-  // Check if already logged in
-  const { data: { session } } = await db.auth.getSession();
-  $('loading').classList.add('hide');
-  if(session) {
-    showApp(session.user);
-  } else {
-    $('login-screen').style.display = 'flex';
-  }
-}
-
-init();
-
 // ── TERCEROS TYCOON ──────────────────────────────────────────
