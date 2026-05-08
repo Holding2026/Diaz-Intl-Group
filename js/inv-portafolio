@@ -1,0 +1,466 @@
+let INV_DATA = [];
+let INV_LOADED = false;
+let F_INV = 'todos';
+
+async function loadInv() {
+  $('inv-stats').innerHTML = '<div class="stat" style="grid-column:span 4;text-align:center;color:var(--t3)">Cargando directorio...</div>';
+  const [tyData, kiiData] = await Promise.all([
+    db.from('vista_contratos_vencimiento').select('*').order('inversionista', {ascending:true}),
+    db.from('posiciones_kii').select('*').order('inversionista_nombre', {ascending:true})
+  ]);
+  const ty = tyData.data || [];
+  const kii = kiiData.data || [];
+
+  // Build consolidated investor directory
+  const map = {};
+  ty.forEach(c => {
+    const key = c.inversionista.trim().toUpperCase();
+    if(!map[key]) map[key] = {nombre: c.inversionista, tycoon:[], kii:[]};
+    map[key].tycoon.push(c);
+  });
+  kii.forEach(p => {
+    const key = p.inversionista_nombre.trim().toUpperCase();
+    if(!map[key]) map[key] = {nombre: p.inversionista_nombre, tycoon:[], kii:[]};
+    map[key].kii.push(p);
+  });
+
+  INV_DATA = Object.values(map).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  INV_LOADED = true;
+
+  // Stats
+  const totalInv = INV_DATA.length;
+  const soloTy = INV_DATA.filter(i=>i.tycoon.length>0&&i.kii.length===0).length;
+  const soloKii = INV_DATA.filter(i=>i.kii.length>0&&i.tycoon.length===0).length;
+  const ambos = INV_DATA.filter(i=>i.tycoon.length>0&&i.kii.length>0).length;
+  const totalCapital = ty.reduce((a,c)=>a+(c.saldo_actual||0),0);
+
+  $('inv-stats').innerHTML = `
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Total inversionistas</div><div class="sv" style="color:var(--t)">${totalInv}</div><div class="sd">directorio consolidado</div></div>
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Solo Tycoon</div><div class="sv" style="color:var(--t)">${soloTy}</div><div class="sd">contratos activos</div></div>
+    <div class="stat" style="border-top:2px solid var(--ac)"><div class="sl">Solo KII</div><div class="sv" style="color:var(--t)">${soloKii}</div><div class="sd">posiciones KII</div></div>
+    <div class="stat" style="border-top:2px solid var(--or);border-color:rgba(255,122,0,.3)"><div class="sl">En ambos</div><div class="sv" style="color:var(--or)">${ambos}</div><div class="sd">Tycoon + KII</div></div>`;
+  $('inv-bdg').textContent = `${totalInv} inversionistas`;
+  renderINV();
+}
+
+function renderINV() {
+  const q = ($('inv-q').value||'').toLowerCase();
+  const f = F.inv || 'todos';
+  let data = INV_DATA.filter(i => {
+    if(f==='tycoon' && i.tycoon.length===0) return false;
+    if(f==='kii' && i.kii.length===0) return false;
+    if(f==='ambos' && (i.tycoon.length===0||i.kii.length===0)) return false;
+    if(q && !i.nombre.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if(!data.length) {
+    $('inv-body').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Sin resultados</td></tr>`;
+    $('inv-cards').innerHTML=''; return;
+  }
+
+  $('inv-body').innerHTML = data.map((inv, ix) => {
+    const col = PAL[ix % PAL.length];
+    const tyContratos = inv.tycoon.length;
+    const tySaldo = inv.tycoon.reduce((a,c)=>a+(c.saldo_actual||0),0);
+    const tyCapital = inv.tycoon.reduce((a,c)=>a+(c.valor_inicial||0),0);
+    const kiiContratos = inv.kii.length;
+    const kiiTokens = inv.kii.reduce((a,p)=>a+(p.total_tokens||0),0);
+    const kiiValor = kiiTokens * 0.02;
+    const totalHolding = tySaldo + kiiValor;
+    const tyNums = inv.tycoon.map(c=>`<span style="font-family:"DM Mono",monospace;font-size:9px;color:${col}">${c.numero}</span>`).join(' ');
+    const kiiNums = inv.kii.map(p=>`<span style="font-family:"DM Mono",monospace;font-size:9px;color:#9AD1F7">${p.contrato}</span>`).join(' ');
+    return `<tr onclick="openInvPerfil('${inv.nombre.replace(/'/g,"\\'")}')">
+      <td><div class="ic"><div class="iav" style="background:${col}18;color:${col};border:1px solid ${col}30">${ini(inv.nombre)}</div>
+        <div><div class="inm">${inv.nombre}</div><div class="iid">${tyContratos>0?tyNums:''}${kiiContratos>0?' '+kiiNums:''}</div></div></div></td>
+      <td><span style="font-size:11px">${tyContratos > 0 ? tyContratos+' contrato'+(tyContratos>1?'s':'') : '<span style="color:var(--t3)">—</span>'}</span></td>
+      <td><span class="mn">${tyCapital>0?fm(tyCapital):'—'}</span></td>
+      <td><span class="mn" style="color:${tySaldo>0?'#00D5B0':'var(--t3)'};font-weight:700">${tySaldo>0?fm(tySaldo):'—'}</span></td>
+      <td><span style="font-size:11px">${kiiContratos>0?kiiContratos+' pos.':'<span style="color:var(--t3)">—</span>'}</span></td>
+      <td><span class="mn" style="color:#9AD1F7">${kiiTokens>0?fmk(kiiTokens):'—'}</span></td>
+      <td><span class="mn" style="color:#9AD1F7">${kiiValor>0?fm(kiiValor):'—'}</span></td>
+      <td><span class="mn" style="font-weight:700;color:var(--t)">${fm(totalHolding)}</span></td>
+      <td onclick="event.stopPropagation()">
+        ${inv.tycoon.length ? inv.tycoon.map(c=>`<button onclick="editarContrato('${c.numero}')" style="font-size:9px;padding:2px 7px;border:0.5px solid var(--br);border-radius:4px;background:transparent;color:var(--t3);cursor:pointer;margin:1px" title="Editar ${c.numero}">${c.numero}</button>`).join('') : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  $('inv-cards').innerHTML = data.map((inv,ix) => {
+    const col = PAL[ix%PAL.length];
+    const tySaldo = inv.tycoon.reduce((a,c)=>a+(c.saldo_actual||0),0);
+    const kiiTokens = inv.kii.reduce((a,p)=>a+(p.total_tokens||0),0);
+    return `<div class="mcard" onclick="openInvPerfil('${inv.nombre.replace(/'/g,"\\'")}')">
+      <div class="mcard-hdr"><div class="ic"><div class="iav" style="background:${col}18;color:${col};border:1px solid ${col}30">${ini(inv.nombre)}</div>
+        <div><div class="mcard-title">${inv.nombre}</div><div class="iid" style="color:${col}">${inv.tycoon.map(c=>c.numero).join(' ')} ${inv.kii.map(p=>p.contrato).join(' ')}</div></div></div></div>
+      <div class="mcard-grid">
+        <div class="mg-item"><div class="mgk">Tycoon saldo</div><div class="mgv g">${tySaldo>0?fm(tySaldo):'—'}</div></div>
+        <div class="mg-item"><div class="mgk">KII valor</div><div class="mgv" style="color:#9AD1F7">${kiiTokens>0?fm(kiiTokens*0.02):'—'}</div></div>
+        <div class="mg-item"><div class="mgk">Contratos Ty</div><div class="mgv">${inv.tycoon.length||'—'}</div></div>
+        <div class="mg-item"><div class="mgk">Posiciones KII</div><div class="mgv">${inv.kii.length||'—'}</div></div>
+      </div></div>`;
+  }).join('');
+}
+
+function openInvPerfil(nombre) {
+  openInvFicha(nombre);
+}
+
+// ── NUEVO INVERSIONISTA ──────────────────────────────────────
+function openNuevoInversionista() {
+  const fld = (id, label, type='text', opts=null) => {
+    if(opts) return `<div>
+      <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">${label}</div>
+      <select id="ni-${id}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+        <option value="">— Seleccionar —</option>
+        ${opts.map(o=>`<option value="${o}">${o}</option>`).join('')}
+      </select></div>`;
+    return `<div>
+      <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">${label}</div>
+      <input id="ni-${id}" type="${type}" placeholder="${label}..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none"></div>`;
+  };
+
+  $('m-t').textContent = 'Nuevo Inversionista';
+  $('m-s').textContent = 'Registrar en la tabla de terceros Tycoon';
+  $('m-b').innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;font-family:'Syne',sans-serif;margin-bottom:10px">IDENTIDAD</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      ${fld('nombre','Nombre completo')}
+      ${fld('nombre_contrato','Nombre en contrato')}
+      ${fld('nombre_legal','Nombre legal')}
+      ${fld('nacionalidad','Nacionalidad')}
+      ${fld('tipo_doc','Tipo documento','text',['Cédula','Pasaporte','NIT','SSN','Otro'])}
+      ${fld('num_doc','Número documento')}
+      ${fld('fecha_nac','Fecha de nacimiento','date')}
+      ${fld('vendedor','Vendedor / Referido por')}
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;font-family:'Syne',sans-serif;margin-bottom:10px">CONTACTO</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      ${fld('email','Email principal','email')}
+      ${fld('email2','Email secundario','email')}
+      ${fld('telefono','Teléfono','tel')}
+      ${fld('whatsapp','WhatsApp','tel')}
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;font-family:'Syne',sans-serif;margin-bottom:10px">RESIDENCIA</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      ${fld('pais','País')}
+      ${fld('ciudad','Ciudad')}
+      ${fld('direccion','Dirección')}
+      ${fld('cp','Código postal')}
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1px;font-family:'Syne',sans-serif;margin-bottom:6px">NOTAS</div>
+    <textarea id="ni-notas" rows="2" placeholder="Notas internas..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;color:var(--t);font-size:12px;outline:none;resize:vertical;margin-bottom:12px"></textarea>
+    <button onclick="guardarNuevoInversionista()" style="width:100%;background:#00A98D;color:#fff;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px">
+      Crear Inversionista
+    </button>
+    <div id="ni-err" style="font-size:11px;color:var(--d);min-height:14px"></div>`;
+  $('ov').classList.add('on');
+}
+
+async function guardarNuevoInversionista() {
+  const nombre = ($('ni-nombre').value||'').trim();
+  if(!nombre) { $('ni-err').textContent = 'El nombre es obligatorio'; return; }
+  const btn = document.querySelector('#m-b button[onclick="guardarNuevoInversionista()"]');
+  if(btn){ btn.textContent = 'Guardando...'; btn.disabled = true; }
+
+  // 1. Crear en tabla inversionistas (registro principal)
+  const {data: invData, error: invErr} = await db.from('inversionistas')
+    .insert({ nombre })
+    .select('id')
+    .single();
+  if(invErr){ $('ni-err').textContent='Error: '+invErr.message; if(btn){btn.textContent='Crear Inversionista';btn.disabled=false;} return; }
+
+  const invId = invData.id;
+
+  // 2. Crear perfil extendido
+  const perfil = {
+    inversionista_id: invId,
+    nombre_legal:     ($('ni-nombre_legal').value||'').trim()||null,
+    nombre_contrato:  ($('ni-nombre_contrato').value||'').trim()||null,
+    nacionalidad:     ($('ni-nacionalidad').value||'').trim()||null,
+    tipo_documento:   ($('ni-tipo_doc').value||'').trim()||null,
+    numero_documento: ($('ni-num_doc').value||'').trim()||null,
+    fecha_nacimiento: $('ni-fecha_nac').value||null,
+    vendedor:         ($('ni-vendedor').value||'').trim()||null,
+    email:            ($('ni-email').value||'').trim()||null,
+    email_secundario: ($('ni-email2').value||'').trim()||null,
+    telefono:         ($('ni-telefono').value||'').trim()||null,
+    whatsapp:         ($('ni-whatsapp').value||'').trim()||null,
+    pais_residencia:  ($('ni-pais').value||'').trim()||null,
+    ciudad:           ($('ni-ciudad').value||'').trim()||null,
+    direccion:        ($('ni-direccion').value||'').trim()||null,
+    codigo_postal:    ($('ni-cp').value||'').trim()||null,
+    notas_admin:      ($('ni-notas').value||'').trim()||null,
+    updated_at:       new Date().toISOString()
+  };
+  // Omitir campos nulos para no pisar defaults
+  Object.keys(perfil).forEach(k => { if(perfil[k]===null) delete perfil[k]; });
+
+  const {error: pErr} = await db.from('inversionistas_perfil').insert(perfil);
+  if(pErr) log('warn', 'Perfil parcial:', pErr.message); // No es crítico
+
+  toast('Inversionista "'+nombre+'" creado ✓', 'ok');
+  closeM();
+  await loadInv(); // Refrescar directorio
+}
+
+// ── NUEVO CONTRATO ────────────────────────────────────────────
+async function openNuevoContrato() {
+  // Cargar lista de inversionistas de la tabla inversionistas
+  const {data: invList} = await db.from('inversionistas').select('id,nombre').order('nombre');
+  const opts = (invList||[]).map(i => `<option value="${i.id}|${i.nombre}">${i.nombre}</option>`).join('');
+
+  // Generar próximo número de contrato
+  const {data: cts} = await db.from('contratos_tycoon').select('numero').order('numero');
+  let nextNum = 'T1';
+  if(cts && cts.length) {
+    const nums = cts.map(c => parseInt((c.numero||'T0').replace(/\D/g,''))).filter(n=>!isNaN(n));
+    if(nums.length) nextNum = 'T' + (Math.max(...nums)+1);
+  }
+
+  const fld = (id, label, type='text') => `<div>
+    <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">${label}</div>
+    <input id="nc-${id}" type="${type}" placeholder="${label}..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none"></div>`;
+
+  const sel = (id, label, options) => `<div>
+    <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">${label}</div>
+    <select id="nc-${id}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      ${options}
+    </select></div>`;
+
+  $('m-t').textContent = 'Nuevo Contrato Tycoon';
+  $('m-s').textContent = 'El inversionista debe existir en el sistema';
+  $('m-b').innerHTML = `
+    <div style="background:rgba(0,169,141,0.07);border:1px solid rgba(0,169,141,0.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#00A98D">
+      Número asignado automáticamente: <strong style="font-family:"DM Mono",monospace">${nextNum}</strong>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      ${sel('inv','Inversionista','<option value="">— Seleccionar inversionista —</option>'+opts)}
+      ${fld('numero','Número contrato')}
+      ${fld('fecha_inicio','Fecha inicio','date')}
+      ${fld('fecha_vcto','Fecha vencimiento','date')}
+      ${sel('tipo','Tipo liquidación',
+        ['Trimestral','Semestral','Anual'].map(t=>`<option value="${t}">${t}</option>`).join(''))}
+      ${sel('estado','Estado',
+        ['Activo','On Hold','Terminado','Liquidado'].map(s=>`<option value="${s}">${s}</option>`).join(''))}
+      ${fld('capital','Capital inicial (USD)','number')}
+      ${fld('saldo','Saldo actual (USD)','number')}
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Observaciones</div>
+      <textarea id="nc-obs" rows="2" placeholder="Observaciones del contrato..." style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;color:var(--t);font-size:12px;outline:none;resize:vertical"></textarea>
+    </div>
+    <button onclick="guardarNuevoContrato('${nextNum}')" style="width:100%;background:#00A98D;color:#fff;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px">
+      Crear Contrato
+    </button>
+    <div id="nc-err" style="font-size:11px;color:var(--d);min-height:14px"></div>`;
+
+  // Auto-fill número con el sugerido
+  $('nc-numero').value = nextNum;
+  $('ov').classList.add('on');
+}
+
+async function guardarNuevoContrato(nextNumSugerido) {
+  const invVal = $('nc-inv').value;
+  if(!invVal){ $('nc-err').textContent='Selecciona un inversionista'; return; }
+  const [invId, invNombre] = invVal.split('|');
+  const numero = ($('nc-numero').value||'').trim().toUpperCase() || nextNumSugerido;
+  const capital = parseFloat($('nc-capital').value) || 0;
+  const saldo   = parseFloat($('nc-saldo').value) || capital;
+  const fecha_inicio = $('nc-fecha_inicio').value || null;
+  const fecha_vcto   = $('nc-fecha_vcto').value || null;
+  if(!fecha_inicio || !fecha_vcto){ $('nc-err').textContent='Fechas de inicio y vencimiento son obligatorias'; return; }
+  if(!capital){ $('nc-err').textContent='El capital inicial es obligatorio'; return; }
+
+  const btn = document.querySelector('#m-b button[onclick^="guardarNuevoContrato"]');
+  if(btn){ btn.textContent='Guardando...'; btn.disabled=true; }
+
+  const payload = {
+    numero,
+    nombre_inversionista: invNombre,
+    inversionista_id:     invId || null,
+    valor_inicial:        capital,
+    saldo_actual:         saldo,
+    tipo_liquidacion:     $('nc-tipo').value,
+    estado:               $('nc-estado').value,
+    fecha_inicio,
+    fecha_vencimiento:    fecha_vcto,
+    observaciones:        ($('nc-obs').value||'').trim()||null
+  };
+
+  const {error} = await db.from('contratos_tycoon').insert(payload);
+  if(error){
+    $('nc-err').textContent = 'Error: '+error.message;
+    if(btn){btn.textContent='Crear Contrato';btn.disabled=false;}
+    return;
+  }
+
+  toast('Contrato '+numero+' creado para '+invNombre+' ✓','ok');
+  closeM();
+  await loadTycoon();
+  await loadInv();
+}
+
+// ── EDITAR CONTRATO ───────────────────────────────────────────
+async function editarContrato(numero) {
+  const {data: ct, error} = await db.from('contratos_tycoon')
+    .select('*').eq('numero', numero).single();
+  if(error || !ct){ toast('Contrato no encontrado','d'); return; }
+
+  const {texto: obsTexto, urls: obsUrls} = parseSoporte(ct.observaciones || ct.anotaciones || '');
+
+  $('m-t').textContent = 'Editar contrato ' + numero;
+  $('m-s').textContent = (ct.nombre_inversionista||'') + ' · ' + (ct.tipo_liquidacion||'');
+
+  const adjuntosHTML = obsUrls.map((url,i) => {
+    const name = url.split('/').pop().split('?')[0];
+    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:0.5px solid var(--br)">
+      <a href="${url}" target="_blank" style="color:var(--ac);font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📄 ${name}</a>
+      <button onclick="eliminarAdjuntoContrato('${numero}',${i})" style="font-size:9px;color:var(--d);background:transparent;border:none;cursor:pointer">✕</button>
+    </div>`;
+  }).join('') || '<div style="font-size:11px;color:var(--t3)">Sin adjuntos</div>';
+
+  $('m-b').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Fecha inicio</div>
+        <input id="ec-fecha-inicio" type="date" value="${ct.fecha_inicio||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Fecha vencimiento</div>
+        <input id="ec-fecha-vcto" type="date" value="${ct.fecha_vencimiento||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Tipo liquidación</div>
+        <select id="ec-tipo-liq" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+          <option value="Trimestral" ${ct.tipo_liquidacion==='Trimestral'?'selected':''}>Trimestral</option>
+          <option value="Semestral" ${ct.tipo_liquidacion==='Semestral'?'selected':''}>Semestral</option>
+          <option value="Anual" ${ct.tipo_liquidacion==='Anual'?'selected':''}>Anual</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Estado</div>
+        <select id="ec-estado" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+          <option value="Activo" ${ct.estado==='Activo'?'selected':''}>Activo</option>
+          <option value="Terminado" ${ct.estado==='Terminado'?'selected':''}>Terminado</option>
+          <option value="Liquidado" ${ct.estado==='Liquidado'?'selected':''}>Liquidado</option>
+          <option value="On Hold" ${ct.estado==='On Hold'?'selected':''}>On Hold</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Capital inicial</div>
+        <input id="ec-capital" type="number" value="${ct.valor_inicial||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Saldo actual</div>
+        <input id="ec-saldo" type="number" value="${ct.saldo_actual||''}" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;color:var(--t);font-size:12px;outline:none">
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:4px;text-transform:uppercase">Observaciones</div>
+      <textarea id="ec-obs" rows="3" style="width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;color:var(--t);font-size:12px;outline:none;resize:vertical">${obsTexto}</textarea>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;margin-bottom:6px;text-transform:uppercase">Adjuntos (${obsUrls.length})</div>
+      <div id="ec-adjuntos-list" style="margin-bottom:8px">${adjuntosHTML}</div>
+      <label style="display:flex;align-items:center;gap:8px;background:var(--sf2);border:1px dashed var(--br);border-radius:7px;padding:9px 12px;cursor:pointer"
+        onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='var(--br)'">
+        <span style="font-size:16px">📎</span>
+        <div>
+          <div style="font-size:11px;color:var(--t)" id="ec-file-label">Agregar adjunto (JPG, PNG, PDF)</div>
+          <div style="font-size:9px;color:var(--t3)">Se acumula junto a los anteriores</div>
+        </div>
+        <input type="file" id="ec-file" accept="image/*,.pdf" style="display:none" onchange="previewFile(this,'ec-file-label')">
+      </label>
+    </div>
+
+    <button onclick="guardarContrato('${numero}','${ct.id}')" style="width:100%;background:var(--ac);color:#07100a;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px">
+      Guardar cambios
+    </button>
+    <div id="ec-err" style="font-size:11px;color:var(--d);min-height:14px"></div>`;
+
+  $('ov').classList.add('on');
+}
+
+async function guardarContrato(numero, contratoId) {
+  const fecha_inicio = $('ec-fecha-inicio').value || null;
+  const fecha_vencimiento = $('ec-fecha-vcto').value || null;
+  const tipo_liquidacion = $('ec-tipo-liq').value;
+  const estado = $('ec-estado').value;
+  const valor_inicial = parseFloat($('ec-capital').value) || null;
+  const saldo_actual = parseFloat($('ec-saldo').value) || null;
+  const obsTexto = ($('ec-obs').value||'').trim();
+
+  // Leer URLs existentes de la BD antes de actualizar
+  const {data: ctActual} = await db.from('contratos_tycoon').select('observaciones,anotaciones').eq('id', contratoId).single();
+  const {urls: urlsExistentes} = parseSoporte((ctActual && (ctActual.observaciones || ctActual.anotaciones)) || '');
+
+  const btn = document.querySelector('#m-b button[onclick^="guardar"]');
+  if(btn){ btn.textContent = 'Guardando...'; btn.disabled = true; }
+
+  // Upload nuevo adjunto si hay
+  let urlsFinales = [...urlsExistentes];
+  const fileEl = $('ec-file');
+  if(fileEl && fileEl.files && fileEl.files[0]) {
+    const file = fileEl.files[0];
+    const ts = Date.now();
+    const ext = file.name.split('.').pop();
+    const path = `tycoon/${numero}/contrato-${ts}.${ext}`;
+    const {error: errFile} = await db.storage.from('soportes-tycoon').upload(path, file, {upsert:true});
+    if(!errFile) {
+      const {data: urlData} = db.storage.from('soportes-tycoon').getPublicUrl(path);
+      urlsFinales.push(urlData.publicUrl);
+    }
+  }
+
+  // Construir observaciones: texto + todos los [soporte:URL] acumulados
+  const nuevasObs = obsTexto + urlsFinales.map(u => '[soporte:' + u + ']').join('');
+
+  const {error} = await db.from('contratos_tycoon').update({
+    fecha_inicio, fecha_vencimiento, tipo_liquidacion, estado,
+    valor_inicial, saldo_actual,
+    observaciones: nuevasObs
+  }).eq('id', contratoId);
+
+  if(error){
+    $('ec-err').textContent = 'Error: ' + error.message;
+    if(btn){ btn.textContent = 'Guardar cambios'; btn.disabled = false; }
+    return;
+  }
+  toast('Contrato ' + numero + ' actualizado ✓', 'ok');
+  closeM();
+  // Refrescar datos
+  TYC_DATA = [];
+  INV_LOADED = false;
+  await loadTycoon();
+  loadInv();
+}
+
+async function eliminarAdjuntoContrato(numero, idx) {
+  if(!confirm('¿Eliminar este adjunto?')) return;
+  const {data: ct} = await db.from('contratos_tycoon').select('observaciones,anotaciones,id').eq('numero', numero).single();
+  const {texto, urls} = parseSoporte((ct.observaciones || ct.anotaciones) || '');
+  urls.splice(idx, 1);
+  const nuevasObs = texto + urls.map(u => '[soporte:' + u + ']').join('');
+  await db.from('contratos_tycoon').update({observaciones: nuevasObs}).eq('id', ct.id);
+  toast('Adjunto eliminado', 'ok');
+  editarContrato(numero);
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+async function init() {
+  // Check if already logged in
+  const { data: { session } } = await db.auth.getSession();
+  $('loading').classList.add('hide');
+  if(session) {
+    showApp(session.user);
+  } else {
+    $('login-screen').style.display = 'flex';
+  }
+}
+
+init();
+
+// ── TERCEROS TYCOON ──────────────────────────────────────────
