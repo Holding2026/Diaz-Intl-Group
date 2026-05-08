@@ -145,8 +145,24 @@ async function guardarEdicion(movId, numContrato) {
 async function eliminarMov(movId, numContrato) {
   if (!confirm('¿Seguro que desea eliminar este movimiento? Esta acción no se puede deshacer.')) return;
 
+  // Get contrato_id before deleting
+  const {data: mov} = await db.from('movimientos').select('contrato_id').eq('id', movId).single();
+  const contratoId = mov?.contrato_id;
+
   const {error} = await db.from('movimientos').delete().eq('id', movId);
   if (error) { toast('Error al eliminar: ' + error.message, 'd'); return; }
+
+  // Recalculate saldo_actual from remaining movimientos
+  if(contratoId) {
+    const {data: lastMov} = await db.from('movimientos')
+      .select('saldo_resultado')
+      .eq('contrato_id', contratoId)
+      .order('fecha', {ascending:false})
+      .order('created_at', {ascending:false})
+      .limit(1);
+    const nuevoSaldo = lastMov && lastMov.length > 0 ? lastMov[0].saldo_resultado : 0;
+    await db.from('contratos_tycoon').update({saldo_actual: nuevoSaldo}).eq('id', contratoId);
+  }
 
   toast('Movimiento eliminado ✓','ok');
   closeM();
@@ -158,4 +174,3 @@ async function eliminarMov(movId, numContrato) {
 let INV_EDIT_MODE = false;
 let INV_CURRENT = null; // {id, nombre, contratos_ty, contratos_kii}
 let INV_TAB = 'resumen';
-
