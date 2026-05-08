@@ -1,0 +1,165 @@
+function toggleAIChat() {
+  aiOpen = !aiOpen;
+  $('ai-modal-overlay').classList.toggle('open', aiOpen);
+}
+
+function clearAIChat() {
+  $('ai-msgs').innerHTML = '<div class="ai-msg bot">🗑 Conversación limpiada. ¿En qué le puedo ayudar?</div>';
+}
+
+function aiQuick(msg) {
+  if (!aiOpen) toggleAIChat();
+  $('ai-input').value = msg;
+  sendAI();
+}
+
+function renderMD(text) {
+  // Split into lines and process tables block by block
+  var lines = text.split('\n');
+  var result = [];
+  var i = 0;
+  while (i < lines.length) {
+    var line = lines[i];
+    // Detect table: line with pipes
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      var tableLines = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        tableLines.push(lines[i].trim());
+        i++;
+      }
+      // Need at least header + separator + 1 row
+      if (tableLines.length >= 3 && tableLines[1].replace(/[\|\-\:\s]/g,'') === '') {
+        var headerCells = tableLines[0].split('|').filter(function(c){return c.trim()!=='';});
+        var dataRows = tableLines.slice(2);
+        var html = '<div style="overflow-x:auto;margin:10px 0"><table style="width:100%;border-collapse:collapse;font-size:11px;border:1px solid var(--br);border-radius:6px;overflow:hidden">';
+        html += '<thead><tr style="background:rgba(0,0,0,0.25);border-bottom:2px solid var(--ac)">';
+        headerCells.forEach(function(cell) {
+          html += '<th style="padding:8px 11px;text-align:left;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ac);letter-spacing:1px;text-transform:uppercase;white-space:nowrap">' + cell.trim() + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        dataRows.forEach(function(row, idx) {
+          var cells = row.split('|').filter(function(c){return c.trim()!=='';});
+          html += '<tr style="border-bottom:1px solid var(--br);background:' + (idx%2===0?'transparent':'rgba(0,0,0,0.12)') + '">';
+          cells.forEach(function(cell) {
+            html += '<td style="padding:7px 11px;font-size:11px">' + cell.trim() + '</td>';
+          });
+          html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        result.push(html);
+      } else {
+        tableLines.forEach(function(l){ result.push(l); });
+      }
+      continue;
+    }
+    result.push(line);
+    i++;
+  }
+  text = result.join('\n');
+
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.+)$/gm, '<div style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin:10px 0 4px">$1</div>')
+    .replace(/^## (.+)$/gm, '<div style="font-size:13px;font-weight:700;color:var(--ac);margin:12px 0 5px;border-bottom:1px solid var(--br);padding-bottom:4px">$1</div>')
+    .replace(/^# (.+)$/gm, '<div style="font-size:15px;font-weight:800;font-family:\'Syne\',sans-serif;color:var(--t);margin:12px 0 6px">$1</div>')
+    .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--br);margin:10px 0">')
+    .replace(/^\* (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:#00A98D;flex-shrink:0">•</span><span>$1</span></div>')
+    .replace(/^- (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:#00A98D;flex-shrink:0">•</span><span>$1</span></div>')
+    .replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--ac);flex-shrink:0;font-family:\'DM Mono\',monospace;font-size:10px">$1.</span><span>$2</span></div>')
+    .replace(/\n\n/g, '<div style="margin-top:8px"></div>')
+    .replace(/\n/g, '<br>');
+}
+
+function aiAddMsg(text, role) {
+  const msgs = $('ai-msgs');
+  const div = document.createElement('div');
+  div.className = 'ai-msg ' + role;
+  if (role === 'bot' && text !== 'Analizando datos...') {
+    div.innerHTML = renderMD(text);
+    div.style.whiteSpace = 'normal';
+  } else {
+    div.textContent = text;
+  }
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function sendAI() {
+  const inp = $('ai-input');
+  const query = inp.value.trim();
+  if (!query) return;
+  inp.value = '';
+  $('ai-send').disabled = true;
+
+  aiAddMsg(query, 'user');
+  const loadingEl = aiAddMsg('Analizando datos...', 'bot loading');
+
+  // Build context from current loaded data
+  const tyContext = TYC_DATA.length ? buildTYContext() : 'No hay datos Tycoon cargados.';
+  const dzContext = FACT_DATA.length ? buildDZContext() : 'No hay datos Díaz cargados.';
+  const kiiContext = KII_DATA.length ? buildKIIContext() : 'No hay datos KII cargados.';
+
+  try {
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        context: {
+          tycoon: tyContext,
+          diaz: dzContext,
+          kii: kiiContext
+        }
+      })
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    const reply = data.reply || data.error || 'No pude generar una respuesta.';
+    loadingEl.className = 'ai-msg bot';
+    loadingEl.innerHTML = renderMD(reply);
+    loadingEl.style.whiteSpace = 'normal';
+  } catch(e) {
+    loadingEl.className = 'ai-msg bot';
+    loadingEl.textContent = '⚠ ' + (e.message || 'Error de conexión desconocido.');
+  }
+
+  $('ai-send').disabled = false;
+  $('ai-msgs').scrollTop = $('ai-msgs').scrollHeight;
+}
+
+function buildTYContext() {
+  const total = TYC_DATA.reduce((a,c)=>a+(c.saldo_actual||0),0);
+  const totalIni = TYC_DATA.reduce((a,c)=>a+(c.valor_inicial||0),0);
+  const urgentes = TYC_DATA.filter(c=>c.dias_al_vencimiento<30);
+  const proximos = TYC_DATA.filter(c=>c.dias_al_vencimiento<180);
+  let ctx = `Total contratos: ${TYC_DATA.length} | Capital gestionado: $${total.toLocaleString('en-US',{minimumFractionDigits:2})} | Capital inicial: $${totalIni.toLocaleString('en-US',{minimumFractionDigits:2})}\n`;
+  ctx += `Vencen <30 días: ${urgentes.length} | Vencen <6 meses: ${proximos.length}\n\nLista de contratos:\n`;
+  TYC_DATA.forEach(c => {
+    const vd = c.fecha_vencimiento || c.proximo_vencimiento;
+    ctx += `- ${c.inversionista} (${c.numero}): Capital inicial $${(c.valor_inicial||0).toLocaleString('en-US',{minimumFractionDigits:2})} | Saldo actual $${(c.saldo_actual||0).toLocaleString('en-US',{minimumFractionDigits:2})} | Tipo: ${c.tipo_liquidacion||'—'} | Vence: ${vd||'—'} (${c.dias_al_vencimiento}d) | Estado: ${c.estado||'Activo'}\n`;
+  });
+  return ctx;
+}
+
+function buildDZContext() {
+  const pendUSD = FACT_DATA.filter(f=>f.moneda==='USD'&&(f.saldo_pendiente||0)>0&&!['Pagada','Anulada','Castigo'].includes(f.estado)).reduce((a,f)=>a+(f.saldo_pendiente||0),0);
+  const total2026 = FACT_DATA.filter(f=>f.año===2026).reduce((a,f)=>a+(f.valor_factura||f.valor||0),0);
+  let ctx = `Total facturas: ${FACT_DATA.length} | Cartera pendiente USD: $${pendUSD.toLocaleString('en-US',{minimumFractionDigits:2})} | Facturado 2026: $${total2026.toLocaleString('en-US',{minimumFractionDigits:2})}\n\nFacturas activas (Pendiente/Abono):\n`;
+  FACT_DATA.filter(f=>['Pendiente','Abono'].includes(f.estado)).slice(0,20).forEach(f => {
+    ctx += `- #${f.numero_factura} ${f.cliente_nombre} | ${f.programa_servicio||'—'} | ${f.moneda} $${(f.valor_factura||f.valor||0).toLocaleString('en-US',{minimumFractionDigits:2})} | Saldo: $${(f.saldo_pendiente||0).toLocaleString('en-US',{minimumFractionDigits:2})} | Estado: ${f.estado} | Pago prog: ${f.fecha_pago_programado||'—'}\n`;
+  });
+  return ctx;
+}
+
+function buildKIIContext() {
+  const totalInv = KII_DATA.reduce((a,i)=>a+(i.valor_inversion||0),0);
+  const totalTokens = KII_DATA.reduce((a,i)=>a+(i.total_tokens||0),0);
+  let ctx = `Total posiciones: ${KII_DATA.length} | Total invertido: $${totalInv.toLocaleString('en-US',{minimumFractionDigits:2})} | Total tokens: ${totalTokens.toLocaleString('en-US')}\n\nPosiciones:\n`;
+  KII_DATA.slice(0,15).forEach(i => {
+    ctx += `- ${i.inversionista_nombre} (${i.contrato}): Inversión $${(i.valor_inversion||0).toLocaleString('en-US',{minimumFractionDigits:2})} | KII Coins: ${(i.kii_coins||0).toLocaleString()} | Staking: ${(i.staking_acumulado||0).toLocaleString()} | Total: ${(i.total_tokens||0).toLocaleString()}\n`;
+  });
+  return ctx;
+}
+
+// ── INVERSIONISTAS ───────────────────────────────────────────
