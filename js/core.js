@@ -38,10 +38,10 @@ function toast(msg, type='ok') {
   _toastTimer = setTimeout(()=>{t.className='toast';_lastToast='';_toastTimer=null;}, 3200);
 }
 function closeM() { $('ov').classList.remove('on'); $('ov').removeAttribute('data-lock'); }
-$('ov').addEventListener('click', e=>{
+if($('ov')) $('ov').addEventListener('click', e=>{
   if(e.target===$('ov') && !$('ov').hasAttribute('data-lock')) closeM();
 });
-$('inv-ov').addEventListener('click', e=>{ if(e.target===$('inv-ov')) closeInvModal(); });
+if($('inv-ov')) $('inv-ov').addEventListener('click', e=>{ if(e.target===$('inv-ov')) closeInvModal(); });
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
