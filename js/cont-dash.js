@@ -11,7 +11,7 @@ async function loadContDash(empresa) {
   const CLR_ING='#2ecc71', CLR_EG='#f39c12', CLR_NEG='#e74c3c';
 
   let q = db.from('transacciones').select('*').eq('empresa_id', empresa);
-  if(anio > 0) q = q.eq('año', anio);
+  if(anio > 0) q = q.gte('fecha', anio+'-01-01').lte('fecha', anio+'-12-31');
   const {data: trans} = await q.order('fecha', {ascending:false});
   const rows = trans || [];
 
@@ -25,8 +25,9 @@ async function loadContDash(empresa) {
   // P&L por mes
   const byMes={};
   rows.forEach(t=>{
-    const tDate=t.fecha?new Date(t.fecha+'T12:00:00'):null;const tM=tDate?tDate.getMonth()+1:(t.mes||0);const tY=tDate?tDate.getFullYear():(t.año||anio);
-    const k=`${tY}-${String(tM).padStart(2,'0')}`;
+    if(!t.fecha) return;
+    const d=new Date(t.fecha+'T12:00:00');
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     if(!byMes[k]) byMes[k]={k,ing:0,eg:0,label:''};
     byMes[k].ing+=t.ingreso||0; byMes[k].eg+=t.egreso||0;
   });
@@ -201,7 +202,7 @@ function renderFacuracion() {
 
 // ── COMPAT ────────────────────────────────────────────────────
 let CONT_FILTER={tycoon:{cat:null,mes:null},diaz:{cat:null,mes:null}};
-function contFiltrar(empresa,tipo,valor){if(tipo==='mes')FC_FILT[empresa].mes=valor?parseInt(valor):null;CONT_LOADED=false;CONTDIAZ_LOADED=false;loadCont(empresa);}
+// contFiltrar removed — use fcFilt instead (unified filter function)
 
 async function subirSoportePago(pagoId, numFactura, cliente, valorFactura, moneda, estadoActual, input) {
   if(!input.files || !input.files[0]) return;
