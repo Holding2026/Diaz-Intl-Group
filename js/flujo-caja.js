@@ -78,24 +78,17 @@ async function loadCont(empresa) {
   const body=$(bodyId);
   if(!body)return;
   body.innerHTML='<div style="text-align:center;color:var(--t3);padding:60px">Cargando...</div>';
+
+  // SINGLE QUERY: all filters in SQL, no JS filtering needed for cuenta/year
   const filt=FC_FILT[empresa];
   let q=db.from('transacciones').select('*').eq('empresa_id',empresa);
-  if(anio>0) q=q.eq('año',anio);
+  if(anio>0) q=q.gte('fecha', anio+'-01-01').lte('fecha', anio+'-12-31');
   if(filt.cuenta) q=q.eq('cuenta_id',filt.cuenta);
   const {data:trans,error}=await q.order('fecha',{ascending:false});
-  
-  // Also get orphan transactions (no cuenta_id) for the same empresa/year
-  let orphanTrans = [];
-  if(filt.cuenta){
-    let qO=db.from('transacciones').select('*').eq('empresa_id',empresa).is('cuenta_id',null);
-    if(anio>0) qO=qO.eq('año',anio);
-    const {data:oData}=await qO.order('fecha',{ascending:false});
-    orphanTrans = oData||[];
-  }
-  const allTrans = [...(trans||[]), ...orphanTrans];
-  
+  if(error) console.error('loadCont:', error);
+
   if(isTy) CONT_LOADED=true; else CONTDIAZ_LOADED=true;
-  fcRenderDashboard(empresa,allTrans,anio,ac,body);
+  fcRenderDashboard(empresa, trans||[], anio, ac, body);
 }
 
 function fcRenderDashboard(empresa, trans, anio, ac, body) {
@@ -103,14 +96,11 @@ function fcRenderDashboard(empresa, trans, anio, ac, body) {
   const filt=FC_FILT[empresa];
   const CLR_ING='#2ecc71',CLR_EG='#f39c12',CLR_NEG='#e74c3c';
   let rows=trans.filter(t=>{
-    // Month filter: use actual fecha month
+    // Month filter: derive from fecha (source of truth)
     if(filt.mes){
       const mesNum = parseInt(filt.mes)||0;
-      if(mesNum > 0){
-        let tMes = 0;
-        if(t.fecha){ tMes = new Date(t.fecha+'T12:00:00').getMonth()+1; }
-        else { tMes = parseInt(t.mes)||0; }
-        if(tMes !== mesNum) return false;
+      if(mesNum > 0 && t.fecha){
+        if(new Date(t.fecha+'T12:00:00').getMonth()+1 !== mesNum) return false;
       }
     }
     if(filt.tipo==='ingreso'&&!(t.ingreso>0))return false;
@@ -120,15 +110,28 @@ function fcRenderDashboard(empresa, trans, anio, ac, body) {
   const ing=rows.reduce((a,t)=>a+(t.ingreso||0),0);
   const eg=rows.reduce((a,t)=>a+(t.egreso||0),0);
   const net=ing-eg, mrg=ing>0?(net/ing*100):0;
+  // P&L by month: always derive from fecha
   const byMes={};
-  rows.forEach(t=>{const tDate=t.fecha?new Date(t.fecha+'T12:00:00'):null;const tM=tDate?tDate.getMonth()+1:(t.mes||0);const tY=tDate?tDate.getFullYear():(t.año||anio);const k=`${tY}-${String(tM).padStart(2,'0')}`;if(!byMes[k])byMes[k]={k,ing:0,eg:0};byMes[k].ing+=t.ingreso||0;byMes[k].eg+=t.egreso||0;});
+  rows.forEach(t=>{
+    if(!t.fecha) return;
+    const d=new Date(t.fecha+'T12:00:00');
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(!byMes[k])byMes[k]={k,ing:0,eg:0};
+    byMes[k].ing+=t.ingreso||0; byMes[k].eg+=t.egreso||0;
+  });
   const mesArr=Object.values(byMes).sort((a,b)=>a.k.localeCompare(b.k));
   const byCat={};
   rows.filter(t=>t.egreso>0).forEach(t=>{const c=t.categoria_nombre||'Sin categoría';byCat[c]=(byCat[c]||0)+t.egreso;});
   const topCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const maxCat=topCats[0]?.[1]||1;
+  // Comparativo anual: from ALL trans (unfiltered by month)
   const byYear={};
-  trans.forEach(t=>{const y=t.año||anio||'?';if(!byYear[y])byYear[y]={ing:0,eg:0};byYear[y].ing+=t.ingreso||0;byYear[y].eg+=t.egreso||0;});
+  trans.forEach(t=>{
+    if(!t.fecha) return;
+    const y=new Date(t.fecha+'T12:00:00').getFullYear();
+    if(!byYear[y])byYear[y]={ing:0,eg:0};
+    byYear[y].ing+=t.ingreso||0; byYear[y].eg+=t.egreso||0;
+  });
   const CW=480,CH=68,maxV=Math.max(...mesArr.map(m=>Math.max(m.ing,m.eg)),1);
   const bW=mesArr.length>0?Math.max(3,Math.floor((CW-20)/mesArr.length/2)-2):8;
   const gW=mesArr.length>0?Math.floor((CW-20)/mesArr.length):20;
@@ -140,15 +143,7 @@ function fcRenderDashboard(empresa, trans, anio, ac, body) {
   const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const mesOpts=MESES.map((m,i)=>`<option value="${i+1}" ${parseInt(filt.mes)===(i+1)?'selected':''}>${m}</option>`).join('');
 
-  // Count orphan transactions (no cuenta_id)
-  const orphanCount = trans.filter(t=>!t.cuenta_id).length;
-  const orphanBanner = orphanCount > 0 ? `<div style="background:rgba(243,156,18,0.08);border:1px solid rgba(243,156,18,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--w)">
-    <span>⚠ ${orphanCount} transacciones sin cuenta bancaria asignada${filt.cuenta?' — se muestran junto con las de la cuenta seleccionada':''}</span>
-    ${cuentas.length?`<button onclick="fcAsignarCuenta('${empresa}','${cuentas[0].id}')" style="background:${ac};color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap">Asignar a ${cuentas[0].nombre}</button>`:''}
-  </div>` : '';
-
   body.innerHTML=`
-  ${orphanBanner}
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
     <span onclick="fcFilt('${empresa}','cuenta',null)" style="cursor:pointer;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;background:${!filt.cuenta?ac:'var(--sf2)'};color:${!filt.cuenta?'#fff':'var(--t2)'};border:1px solid ${!filt.cuenta?ac:'var(--br)'}">Todas</span>
     ${cuentas.map(c=>{const isA=filt.cuenta===c.id;const icon=c.tipo==='banco'?'🏦':c.tipo==='zelle'?'⚡':c.tipo==='paypal'?'🅿':c.tipo==='crypto'?'₿':'💵';return `<span onclick="fcFilt('${empresa}','cuenta','${c.id}')" style="cursor:pointer;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;background:${isA?ac:'var(--sf2)'};color:${isA?'#fff':'var(--t)'};border:1px solid ${isA?ac:'var(--br)'};">${icon} ${c.nombre}</span>`;}).join('')}
@@ -610,26 +605,44 @@ async function impConfirmar(empresa){
   if(!IMP_DATA||!IMP_DATA.rows.length)return;
   const cuentaId=(document.getElementById('imp-cuenta')?.value||'').trim();
   if(!cuentaId){toast('Selecciona la cuenta bancaria','d');return;}
-  const btn=document.getElementById('imp-btn-ok');btn.textContent='Importando...';btn.disabled=true;
+  const btn=document.getElementById('imp-btn-ok');if(btn){btn.textContent='Importando...';btn.disabled=true;}
   const {anio,mes,rows}=IMP_DATA;
-  // Clean slate: delete both assigned AND orphan transactions for this period
-  await db.from('transacciones').delete().eq('empresa_id',empresa).eq('año',anio).eq('mes',mes).eq('cuenta_id',cuentaId);
-  await db.from('transacciones').delete().eq('empresa_id',empresa).eq('año',anio).eq('mes',mes).is('cuenta_id',null);
-  const inserts=rows.map(r=>({empresa_id:empresa,cuenta_id:cuentaId,fecha:r.fecha,año:anio,mes,concepto:r.concepto,categoria_nombre:r.categoria||null,ingreso:r.ingreso||0,egreso:r.egreso||0,moneda:'USD',tasa_cambio:1}));
+
+  // Determine date range from actual transaction dates
+  const fechas = rows.map(r=>r.fecha).filter(Boolean).sort();
+  const fechaMin = fechas[0] || (anio+'-'+String(mes).padStart(2,'0')+'-01');
+  const fechaMax = fechas[fechas.length-1] || (anio+'-'+String(mes).padStart(2,'0')+'-31');
+
+  // Clean slate: delete by empresa + cuenta + date range (not by año/mes columns)
+  await db.from('transacciones').delete()
+    .eq('empresa_id',empresa).eq('cuenta_id',cuentaId)
+    .gte('fecha',fechaMin).lte('fecha',fechaMax);
+
+  // Insert with fecha as source of truth (keep año/mes for backward compat but derive from fecha)
+  const inserts=rows.map(r=>{
+    const fDate = r.fecha ? new Date(r.fecha+'T12:00:00') : null;
+    return {
+      empresa_id:empresa, cuenta_id:cuentaId, fecha:r.fecha,
+      año: fDate ? fDate.getFullYear() : anio,
+      mes: fDate ? fDate.getMonth()+1 : mes,
+      concepto:r.concepto, categoria_nombre:r.categoria||null,
+      ingreso:r.ingreso||0, egreso:r.egreso||0, moneda:'USD', tasa_cambio:1
+    };
+  });
   let errs=0;
-  for(let i=0;i<inserts.length;i+=50){const {error}=await db.from('transacciones').insert(inserts.slice(i,i+50));if(error){errs++;console.error(error);}}
+  for(let i=0;i<inserts.length;i+=50){
+    const {error}=await db.from('transacciones').insert(inserts.slice(i,i+50));
+    if(error){errs++;console.error('Import batch error:',error);}
+  }
   toast(errs?`Importado con ${errs} errores`:`✓ ${rows.length} movimientos importados`,'ok');
   cerrarImportar();
-  // Set year filter to imported year
+  // Set filters and navigate
   const anioEl=empresa==='tycoon'?$('cont-año'):$('contdiaz-año');
   if(anioEl) anioEl.value=String(anio);
-  // Reset month filter to show all months (so user sees the data)
   FC_FILT[empresa].mes=0;
   FC_FILT[empresa].cuenta=cuentaId;
   CONT_LOADED=false;CONTDIAZ_LOADED=false;
-  // Navigate to the correct tab to ensure it's visible
-  const tabName = empresa==='tycoon'?'cont':'contdiaz';
-  goTab(tabName);
+  goTab(empresa==='tycoon'?'cont':'contdiaz');
 }
 
 // ── DASHBOARD CONTABLE (visible admin + equipo) ───────────────
