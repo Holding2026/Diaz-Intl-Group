@@ -423,3 +423,16 @@ async function guardarEmpresa(id, isEdit){
   await loadEmpresas();
 }
 
+
+// ── INIT (must be last — after all modules loaded) ───────────
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  $('loading').classList.add('hide');
+  if(session) {
+    showApp(session.user);
+  } else {
+    $('login-screen').style.display = 'flex';
+  }
+}
+
+init();
