@@ -87,20 +87,21 @@ body.theme-ty, body.theme-tycoon {
 }
 
 /* ══════════════════════════════════════════
-   TEMA: DÍAZ INTERNATIONAL
+   TEMA: DÍAZ INTERNATIONAL — 2026
+   Navy + Gold + Grises sofisticados
    ══════════════════════════════════════════ */
 body.theme-dz, body.theme-diaz {
-  --bg:#edf3f1;
-  --primary:#00A98D;
-  --primary-soft:rgba(0,169,141,0.07);
-  --primary-mid:rgba(0,169,141,0.14);
-  --sidebar-bg:linear-gradient(180deg,rgba(4,38,33,0.92) 0%,rgba(6,46,40,0.90) 100%);
-  --sidebar-border:rgba(255,255,255,0.05);
-  --sidebar-accent:#00D5B0;
-  --topbar-bg:linear-gradient(180deg,rgba(6,46,40,0.90) 0%,rgba(8,56,48,0.86) 100%);
-  --text:#0d2a23;
-  --text-soft:#3d7065;
-  --text-muted:#85b5aa;
+  --bg:#f5f6f8;
+  --primary:#1e3a5f;
+  --primary-soft:rgba(30,58,95,0.07);
+  --primary-mid:rgba(30,58,95,0.14);
+  --sidebar-bg:linear-gradient(180deg,rgba(15,26,42,0.94) 0%,rgba(18,30,48,0.92) 100%);
+  --sidebar-border:rgba(255,255,255,0.04);
+  --sidebar-accent:#C4A062;
+  --topbar-bg:linear-gradient(180deg,rgba(18,30,48,0.92) 0%,rgba(21,34,52,0.88) 100%);
+  --text:#1a2332;
+  --text-soft:#546478;
+  --text-muted:#8a96a8;
 }
 
 /* ══════════════════════════════════════════
