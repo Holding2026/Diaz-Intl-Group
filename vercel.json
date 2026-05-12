@@ -1,0 +1,6 @@
+{
+  "buildCommand": "echo 'Build triggered at Paleta DÍAZ 2026'",
+  "env": {
+    "NEXT_PUBLIC_BUILD_ID": "diaz-2026-navy-gold"
+  }
+}
