@@ -1,6 +1,18 @@
 {
-  "buildCommand": "echo 'Build triggered at Paleta DÍAZ 2026'",
+  "buildCommand": "echo 'Rebuild NOW'",
   "env": {
-    "NEXT_PUBLIC_BUILD_ID": "diaz-2026-navy-gold"
-  }
+    "FORCE_BUILD": "true",
+    "CACHE_BUST": "2026-navy-gold"
+  },
+  "headers": [
+    {
+      "source": "/css/main.css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
 }
