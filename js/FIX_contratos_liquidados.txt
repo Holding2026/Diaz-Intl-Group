@@ -1,0 +1,186 @@
+═══════════════════════════════════════════════════════════════════
+FIX — CONTRATOS LIQUIDADOS (Tycoon Dashboard)
+═══════════════════════════════════════════════════════════════════
+
+Problema:
+  El contrato T29 está Liquidado, pero seguía mostrando el pill de
+  días vencidos (-1650d) y permitía registrar movimientos nuevos.
+
+Objetivo:
+  Los contratos con estado="Liquidado" deben:
+    · No mostrar contador de días (—)
+    · No mostrar barra de progreso de vencimiento
+    · Estar excluidos de los filtros <30d y <6m
+    · No mostrar el formulario "Registrar nuevo movimiento"
+    · Rechazar el insert aunque alguien fuerce guardarMovimiento
+
+═══════════════════════════════════════════════════════════════════
+IMPORTANTE — DÓNDE APLICAR
+═══════════════════════════════════════════════════════════════════
+
+El proyecto tiene el mismo código duplicado en dos lugares:
+  · index.html
+  · js/tycoon.js y js/movimientos.js  (si existen)
+
+APLICA LOS CAMBIOS EN AMBOS SITIOS si tienes los archivos js/
+separados. Si solo usas index.html, con ese basta.
+
+Todos los "BUSCAR" son cadenas ÚNICAS en el archivo — no hay riesgo
+de reemplazar la ubicación equivocada.
+
+═══════════════════════════════════════════════════════════════════
+CAMBIO 1 de 3  →  Función renderTY()  (tabla de contratos)
+Archivos: index.html  Y  js/tycoon.js
+═══════════════════════════════════════════════════════════════════
+
+━━━ BUSCAR (bloque exacto) ━━━
+
+function renderTY() {
+  var q=$('ty-q').value.toLowerCase(), f=F.ty;
+  var rows=TYC_DATA.filter(function(r){
+    if(f==='urgente'&&r.dias_al_vencimiento>=30) return false;
+    if(f==='proximo'&&r.dias_al_vencimiento>=180) return false;
+    if(f==='hold'&&r.estado!=='On Hold') return false;
+    if(q&&!r.inversionista.toLowerCase().includes(q)&&!r.numero.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+━━━ REEMPLAZAR POR ━━━
+
+function renderTY() {
+  var q=$('ty-q').value.toLowerCase(), f=F.ty;
+  var rows=TYC_DATA.filter(function(r){
+    if(f==='urgente'&&(r.estado==='Liquidado'||r.dias_al_vencimiento>=30)) return false;
+    if(f==='proximo'&&(r.estado==='Liquidado'||r.dias_al_vencimiento>=180)) return false;
+    if(f==='hold'&&r.estado!=='On Hold') return false;
+    if(q&&!r.inversionista.toLowerCase().includes(q)&&!r.numero.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+
+━━━ Y en la MISMA función renderTY, buscar TAMBIÉN esta línea ━━━
+(aparece dos veces: una para ty-body, otra para ty-cards — hacer el
+ reemplazo LAS DOS VECES)
+
+━━━ BUSCAR ━━━
+
+    var col=PAL[ix%PAL.length], d=r.dias_al_vencimiento;
+    var vd=r.fecha_vencimiento||r.proximo_vencimiento;
+    var dpill=d<30?'<span class="pill" style="background:var(--ord);color:var(--or);border:1px solid rgba(255,122,0,0.35)"><span class="dot"></span>'+d+'d</span>':d<180?'<span class="pill pw"><span class="dot"></span>'+d+'d</span>':'<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3)">'+d+'d</span>';
+
+━━━ REEMPLAZAR POR ━━━
+
+    var col=PAL[ix%PAL.length], d=r.dias_al_vencimiento;
+    var vd=r.fecha_vencimiento||r.proximo_vencimiento;
+    var cerrado=(r.estado==='Liquidado');
+    var dpill=cerrado
+      ? '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3)">—</span>'
+      : (d<30?'<span class="pill" style="background:var(--ord);color:var(--or);border:1px solid rgba(255,122,0,0.35)"><span class="dot"></span>'+d+'d</span>':d<180?'<span class="pill pw"><span class="dot"></span>'+d+'d</span>':'<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--t3)">'+d+'d</span>');
+
+
+━━━ Y también, en la misma función, buscar (aparece dos veces) ━━━
+
+    var pct=Math.min(98,Math.max(2,(Math.max(0,d)/365)*100));
+
+━━━ REEMPLAZAR POR ━━━
+
+    var pct=cerrado?0:Math.min(98,Math.max(2,(Math.max(0,d)/365)*100));
+
+
+═══════════════════════════════════════════════════════════════════
+CAMBIO 2 de 3  →  Función openPerfil()  (modal del contrato)
+Archivos: index.html  Y  js/tycoon.js
+═══════════════════════════════════════════════════════════════════
+
+━━━ BUSCAR (línea exacta, única en el archivo) ━━━
+
+  $('m-b').innerHTML = summaryHTML + chartSVG + anualHTML + movHTML + (USER_ROL==='admin'?formHTML:'');
+
+━━━ REEMPLAZAR POR ━━━
+
+  var contratoLiquidado = (inv.estado==='Liquidado');
+  var avisoLiquidado = '<div style="margin-top:14px;padding:12px;border:1px solid var(--br);border-radius:8px;background:rgba(91,103,112,0.1);color:#5B6770;font-size:11px;text-align:center">🔒 Contrato liquidado — no admite nuevos movimientos. El saldo fue trasladado.</div>';
+  $('m-b').innerHTML = summaryHTML + chartSVG + anualHTML + movHTML +
+    (USER_ROL==='admin' ? (contratoLiquidado ? avisoLiquidado : formHTML) : '');
+
+
+═══════════════════════════════════════════════════════════════════
+CAMBIO 3 de 3  →  Función guardarMovimiento()  (bloqueo backend)
+Archivos: index.html  Y  js/movimientos.js
+═══════════════════════════════════════════════════════════════════
+
+━━━ BUSCAR ━━━
+
+async function guardarMovimiento(numero) {
+  const contrato = TYC_DATA.find(c=>c.numero===numero);
+  if(!contrato) return;
+
+━━━ REEMPLAZAR POR ━━━
+
+async function guardarMovimiento(numero) {
+  const contrato = TYC_DATA.find(c=>c.numero===numero);
+  if(!contrato) return;
+  if(contrato.estado==='Liquidado'){
+    toast('El contrato '+numero+' está liquidado — no admite nuevos movimientos','d');
+    return;
+  }
+
+
+═══════════════════════════════════════════════════════════════════
+CÓMO APLICARLO EN GITHUB (2 minutos)
+═══════════════════════════════════════════════════════════════════
+
+1. Abre https://github.com/Holding2026/Dashboard-D-az-Intl-Group
+2. Click en index.html → botón lápiz (✏️ Edit)
+3. Ctrl+F → pega el "BUSCAR" del Cambio 1
+4. Sustituye por el "REEMPLAZAR" del Cambio 1
+5. Repite para los dos sub-cambios internos del Cambio 1
+   (el del dpill y el del pct — cada uno aparece dos veces)
+6. Repite para Cambio 2 y Cambio 3
+7. Si existe /js/tycoon.js: abrir y hacer Cambios 1 y 2 también
+   Si existe /js/movimientos.js: hacer Cambio 3 también
+8. Scroll abajo → "Commit changes" con mensaje:
+   "fix: contratos liquidados no muestran días ni admiten movimientos"
+9. Vercel deploya en 20-40s → verifica en el T29
+
+═══════════════════════════════════════════════════════════════════
+VERIFICACIÓN VISUAL POST-DEPLOY
+═══════════════════════════════════════════════════════════════════
+
+Contrato T29 (Liquidado):
+  ✅ Columna Días muestra "—" en lugar de "-1650d" naranja
+  ✅ Barra de progreso vacía (no naranja)
+  ✅ Badge sigue diciendo "Liquidado" (gris)
+  ✅ Al abrir el perfil → NO aparece el formulario de nuevo movimiento
+  ✅ En su lugar aparece: "🔒 Contrato liquidado…"
+  ✅ Filtros "<30d" y "<6m" NO lo listan
+
+Contrato T40 (Activo):
+  ✅ Todo sigue funcionando igual que antes
+
+═══════════════════════════════════════════════════════════════════
+NOTA — BLINDAJE A NIVEL BASE DE DATOS (opcional, para más adelante)
+═══════════════════════════════════════════════════════════════════
+
+Mientras RLS siga desactivado, cualquier cliente con la anon key
+podría hacer INSERT directo a movimientos saltándose el frontend.
+Cuando reactivemos RLS, conviene agregar este trigger en Supabase:
+
+  CREATE OR REPLACE FUNCTION bloquear_mov_liquidado()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM contratos_tycoon
+      WHERE id = NEW.contrato_id AND estado = 'Liquidado'
+    ) THEN
+      RAISE EXCEPTION 'Contrato liquidado — no admite movimientos';
+    END IF;
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+
+  CREATE TRIGGER trg_bloquear_mov_liquidado
+  BEFORE INSERT ON movimientos
+  FOR EACH ROW EXECUTE FUNCTION bloquear_mov_liquidado();
+
+═══════════════════════════════════════════════════════════════════
